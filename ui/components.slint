@@ -1,0 +1,297 @@
+// Bugra design system components for CAIOR. Values come from the generated
+// Theme global (design/bugra/tokens.json); no colors or sizes are written here.
+
+import { Theme } from "theme.slint";
+
+export global Icons {
+    out property <image> check: @image-url("icons/check.svg");
+    out property <image> x: @image-url("icons/x.svg");
+    out property <image> download: @image-url("icons/download.svg");
+    out property <image> package: @image-url("icons/package.svg");
+    out property <image> settings: @image-url("icons/settings.svg");
+    out property <image> offline: @image-url("icons/hard-drive-download.svg");
+    out property <image> history: @image-url("icons/history.svg");
+    out property <image> minimize: @image-url("icons/minimize-2.svg");
+    out property <image> maximize: @image-url("icons/maximize-2.svg");
+    out property <image> alert: @image-url("icons/circle-alert.svg");
+    out property <image> info: @image-url("icons/info.svg");
+    out property <image> refresh: @image-url("icons/refresh-cw.svg");
+    out property <image> folder: @image-url("icons/folder-open.svg");
+    out property <image> search: @image-url("icons/search.svg");
+    out property <image> cpu: @image-url("icons/cpu.svg");
+    out property <image> layers: @image-url("icons/layers.svg");
+    out property <image> gamepad: @image-url("icons/gamepad-2.svg");
+    out property <image> app-window: @image-url("icons/app-window.svg");
+    out property <image> coffee: @image-url("icons/coffee.svg");
+    out property <image> database: @image-url("icons/database.svg");
+    out property <image> terminal: @image-url("icons/terminal.svg");
+    out property <image> archive: @image-url("icons/archive.svg");
+}
+
+// Outline icon tinted with one ink.
+export component Icon inherits Image {
+    in property <color> ink: Theme.muted;
+    colorize: ink;
+    width: 18px;
+    height: 18px;
+    image-fit: contain;
+}
+
+// Solid 2px focus outline, 3px outside the control.
+component FocusRing inherits Rectangle {
+    in property <bool> show;
+    in property <length> corner;
+    in property <length> target-width;
+    in property <length> target-height;
+    x: -3px;
+    y: -3px;
+    width: target-width + 6px;
+    height: target-height + 6px;
+    border-radius: corner + 3px;
+    border-width: show ? 2px : 0px;
+    border-color: Theme.focus-ring;
+}
+
+export enum ButtonKind { primary, outline, ghost }
+
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <ButtonKind> kind: ButtonKind.primary;
+    in property <bool> enabled: true;
+    in property <length> control-height: 40px;
+    callback clicked();
+
+    height: control-height;
+    min-width: label.preferred-width + (has-icon ? 26px : 0px) + 2 * Theme.space-5;
+    border-radius: Theme.pill;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { clicked(); } }
+
+    background: !enabled ? Theme.disabled-fill
+        : kind == ButtonKind.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent)
+        : (touch.has-hover ? Theme.surface-2 : transparent);
+    border-width: kind == ButtonKind.outline ? 1px : 0px;
+    border-color: touch.has-hover ? Theme.ink : Theme.border-control;
+    animate background, border-color { duration: Theme.dur-hover; easing: cubic-bezier(0.16, 1, 0.3, 1); }
+
+    property <color> ink: !enabled ? Theme.disabled-ink : kind == ButtonKind.primary ? Theme.on-accent : Theme.ink;
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: Theme.space-2;
+        padding-left: Theme.space-5;
+        padding-right: Theme.space-5;
+        if has-icon: Icon {
+            source: icon;
+            ink: root.ink;
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+        }
+        label := Text {
+            text: root.text;
+            color: root.ink;
+            font-size: Theme.type-button-size;
+            font-weight: Theme.type-button-weight;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { focus.focus(); root.clicked(); }
+    }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") { root.clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { show: focus.has-focus; corner: root.height / 2; target-width: root.width; target-height: root.height; }
+}
+
+// Pill chip for profiles and filters; selected chips carry a check.
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+
+    height: Theme.control-sm;
+    min-width: chip-label.preferred-width + (selected ? 22px : 0px) + 2 * 14px;
+    border-radius: Theme.pill;
+    background: selected ? Theme.accent-quiet : (touch.has-hover ? Theme.surface-2 : transparent);
+    border-width: 1px;
+    border-color: selected ? Theme.accent-ink : Theme.line-strong;
+    accessible-role: checkbox;
+    accessible-checked: selected;
+    accessible-label: text;
+    accessible-action-default => { clicked(); }
+    animate background { duration: Theme.dur-hover; }
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        padding-left: 14px;
+        padding-right: 14px;
+        if selected: Icon {
+            source: Icons.check;
+            ink: Theme.accent-ink;
+            width: 15px;
+            height: 15px;
+            y: (parent.height - self.height) / 2;
+        }
+        chip-label := Text {
+            text: root.text;
+            color: Theme.ink;
+            font-size: Theme.type-button-size;
+            font-weight: Theme.type-button-weight;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { focus.focus(); root.clicked(); }
+    }
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") { root.clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { show: focus.has-focus; corner: root.height / 2; target-width: root.width; target-height: root.height; }
+}
+
+// Square check box. The edge uses border-control so it reaches 3:1.
+export component CheckBox inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    width: 18px;
+    height: 18px;
+    border-radius: Theme.radius-2xs;
+    background: !enabled ? Theme.disabled-fill : checked ? Theme.accent : transparent;
+    border-width: checked && enabled ? 0px : 1.5px;
+    border-color: enabled ? Theme.border-control : Theme.disabled-ink;
+    if checked: Icon {
+        source: Icons.check;
+        ink: enabled ? Theme.on-accent : Theme.disabled-ink;
+        width: 14px;
+        height: 14px;
+        x: 2px;
+        y: 2px;
+    }
+}
+
+// Install state: 0 missing, 1 installed, 2 outdated, 3 unknown, 4 not for this PC.
+export component StatusLabel inherits HorizontalLayout {
+    in property <int> status;
+    in property <string> detail;
+    spacing: 6px;
+    alignment: end;
+    property <color> ink: status == 1 ? Theme.ok : status == 2 ? Theme.info : Theme.muted;
+    if status == 1 || status == 2: Icon {
+        source: status == 1 ? Icons.check : Icons.refresh;
+        ink: root.ink;
+        width: 15px;
+        height: 15px;
+        y: (parent.height - self.height) / 2;
+    }
+    Text {
+        text: status == 1 ? @tr("Installed")
+            : status == 2 ? @tr("Update available")
+            : status == 3 ? @tr("Unknown")
+            : status == 4 ? @tr("Not for this PC")
+            : @tr("Missing");
+        color: root.ink;
+        font-size: Theme.type-small-size;
+        vertical-alignment: center;
+    }
+}
+
+export component ProgressBar inherits Rectangle {
+    in property <float> value; // 0..1
+    height: 6px;
+    border-radius: Theme.pill;
+    background: Theme.surface-2;
+    Rectangle {
+        x: 0;
+        width: parent.width * max(0, min(1, root.value));
+        height: parent.height;
+        border-radius: Theme.pill;
+        background: Theme.accent;
+        animate width { duration: Theme.dur-medium; easing: cubic-bezier(0.2, 0, 0, 1); }
+    }
+}
+
+export component NavItem inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> active;
+    callback clicked();
+    height: 40px;
+    border-radius: Theme.radius-sm;
+    background: active || touch.has-hover ? Theme.surface-2 : transparent;
+    accessible-role: tab;
+    accessible-label: text;
+    accessible-action-default => { clicked(); }
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        spacing: Theme.space-3;
+        Icon {
+            source: root.icon;
+            ink: root.active || touch.has-hover ? Theme.ink : Theme.muted;
+            width: 19px;
+            height: 19px;
+            y: (parent.height - self.height) / 2;
+        }
+        Text {
+            text: root.text;
+            color: root.active ? Theme.ink : Theme.muted;
+            font-size: Theme.type-body-size;
+            font-weight: root.active ? 500 : 400;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { focus.focus(); root.clicked(); }
+    }
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") { root.clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { show: focus.has-focus; corner: Theme.radius-sm; target-width: root.width; target-height: root.height; }
+}
+
+// Note box: title rule plus a muted reason.
+export component Note inherits Rectangle {
+    in property <string> title;
+    in property <string> body;
+    in property <bool> warn;
+    border-radius: Theme.radius-sm;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.line-strong;
+    VerticalLayout {
+        padding: Theme.space-4;
+        spacing: Theme.space-1;
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            Icon {
+                source: root.warn ? Icons.alert : Icons.info;
+                ink: root.warn ? Theme.warn : Theme.info;
+                width: 16px;
+                height: 16px;
+            }
+            Text { text: root.title; color: Theme.ink; font-weight: 600; font-size: Theme.type-body-size; }
+        }
+        Text { text: root.body; color: Theme.muted; font-size: Theme.type-small-size; wrap: word-wrap; }
+    }
+}

@@ -1,0 +1,582 @@
+// CAIOR main window and the bottom-right progress card.
+// Layout and behavior: docs/DESIGN.md. Tokens: generated Theme global.
+
+import { ListView, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Icons, Icon, Button, ButtonKind, Chip, CheckBox, StatusLabel, ProgressBar, NavItem, Note } from "components.slint";
+
+import "fonts/Geist-Regular.ttf";
+import "fonts/Geist-Medium.ttf";
+import "fonts/Geist-SemiBold.ttf";
+import "fonts/JetBrainsMono-Regular.ttf";
+
+export { Theme, Icons }
+
+// One line of the package list: a category header or a package.
+export struct PackageRow {
+    is-header: bool,
+    category: string,
+    icon: image,
+    id: string,
+    name: string,
+    detail: string,
+    size: string,
+    status: int,
+    checked: bool,
+    enabled: bool,
+    legacy: bool,
+}
+
+// State: 0 queued, 1 downloading, 2 ready, 3 installing, 4 done, 5 done + restart, 6 failed, 7 skipped.
+export struct ProgressRow {
+    id: string,
+    name: string,
+    state: int,
+    percent: int,
+    // Installer exit code or short reason for failed rows.
+    code: string,
+}
+
+// Global UI strings and callbacks that both windows use.
+export global AppState {
+    in-out property <bool> busy;
+    in property <bool> finished;
+    in property <float> overall;
+    in property <string> current-name;
+    in property <int> done-count;
+    in property <int> total-count;
+    // 0 preparing, 1 waiting for approval, 2 downloading, 3 installing
+    in property <int> stage;
+    in property <int> stage-percent;
+    in property <bool> download-only;
+    in property <int> ok-count;
+    in property <int> failed-count;
+    in property <bool> cancelled;
+    in property <bool> declined;
+    in property <bool> reboot-needed;
+    out property <string> counter: total-count > 0 ? done-count + " / " + total-count : "";
+    out property <string> stage-text: stage == 1 ? @tr("Waiting for administrator approval...")
+        : stage == 2 ? @tr("Downloading {}%", stage-percent)
+        : stage == 3 ? @tr("Installing...")
+        : @tr("Preparing...");
+    out property <bool> summary-warn: failed-count > 0 || cancelled || declined;
+    out property <string> summary-title: declined ? @tr("Nothing was installed")
+        : cancelled ? @tr("Stopped")
+        : failed-count > 0 ? @tr("Finished with errors")
+        : download-only ? @tr("Download complete")
+        : @tr("All done");
+    out property <string> summary-body: declined ? @tr("Administrator approval was declined.")
+        : download-only ? @tr("{} packages downloaded and verified.", ok-count)
+        : failed-count > 0 ? @tr("{} installed, {} failed. See the logs for details.", ok-count, failed-count)
+        : reboot-needed ? @tr("{} installed. Restart Windows to finish.", ok-count)
+        : @tr("{} installed.", ok-count);
+    callback cancel();
+    callback restart-now();
+    callback show-main();
+}
+
+component PackageListRow inherits Rectangle {
+    in property <PackageRow> item;
+    callback toggled();
+    height: item.is-header ? 52px : 48px;
+    background: !item.is-header && touch.has-hover && item.enabled ? Theme.surface-2 : transparent;
+    border-radius: Theme.radius-xs;
+
+    if item.is-header: HorizontalLayout {
+        padding-top: 18px;
+        spacing: Theme.space-2;
+        Icon { source: item.icon; ink: Theme.muted; width: 18px; height: 18px; y: (parent.height - self.height) / 2 + 9px; }
+        Text {
+            text: item.category;
+            color: Theme.ink;
+            font-size: Theme.type-h3-size;
+            font-weight: Theme.type-h3-weight;
+            vertical-alignment: center;
+        }
+        Rectangle { }
+        Text {
+            text: item.detail;
+            color: Theme.muted;
+            font-size: Theme.type-small-size;
+            vertical-alignment: center;
+        }
+    }
+
+    if !item.is-header: HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        spacing: Theme.space-3;
+        CheckBox { checked: item.checked; enabled: item.enabled; y: (parent.height - self.height) / 2; }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                spacing: Theme.space-2;
+                Text {
+                    text: item.name;
+                    color: item.enabled ? Theme.ink : Theme.disabled-ink;
+                    font-size: Theme.type-body-size;
+                    overflow: elide;
+                    horizontal-stretch: 0;
+                }
+                if item.legacy: Rectangle {
+                    border-radius: Theme.pill;
+                    border-width: 1px;
+                    border-color: Theme.line-strong;
+                    width: legacy-text.preferred-width + 14px;
+                    height: 18px;
+                    y: (parent.height - self.height) / 2;
+                    legacy-text := Text {
+                        text: @tr("Out of support");
+                        color: Theme.muted;
+                        font-size: 11px;
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            Text {
+                text: item.detail;
+                color: Theme.muted;
+                font-size: Theme.type-small-size;
+                overflow: elide;
+            }
+        }
+        Text {
+            text: item.size;
+            color: Theme.muted;
+            font-family: Theme.font-mono;
+            font-size: Theme.type-meta-size;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            min-width: 70px;
+        }
+        StatusLabel { status: item.status; min-width: 130px; }
+    }
+
+    touch := TouchArea {
+        enabled: !item.is-header && item.enabled;
+        mouse-cursor: self.enabled ? pointer : default;
+        clicked => { root.toggled(); }
+    }
+}
+
+component ProgressListRow inherits Rectangle {
+    in property <ProgressRow> item;
+    height: 40px;
+    property <color> ink: item.state == 4 ? Theme.ok : item.state == 5 ? Theme.info : item.state == 6 ? Theme.warn : Theme.muted;
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        spacing: Theme.space-3;
+        Icon {
+            source: item.state == 4 || item.state == 5 ? Icons.check : item.state == 6 ? Icons.alert : item.state == 3 ? Icons.package : Icons.download;
+            ink: root.ink;
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+        }
+        Text {
+            text: item.name;
+            color: item.state == 7 ? Theme.muted : Theme.ink;
+            font-size: Theme.type-body-size;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        Text {
+            text: item.state == 1 ? @tr("Downloading {}%", item.percent)
+                : item.state == 2 ? @tr("Ready")
+                : item.state == 3 ? @tr("Installing...")
+                : item.state == 4 ? @tr("Installed")
+                : item.state == 5 ? @tr("Installed, restart needed")
+                : item.state == 6 ? (item.code != "" ? @tr("Error: {}", item.code) : @tr("Error"))
+                : item.state == 7 ? @tr("Skipped")
+                : @tr("Waiting");
+            color: root.ink;
+            font-size: Theme.type-small-size;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "CAIOR";
+    icon: @image-url("../assets/icon.png");
+    preferred-width: 1040px;
+    preferred-height: 680px;
+    min-width: 880px;
+    min-height: 560px;
+    background: Theme.bg;
+    default-font-family: Theme.font-ui;
+    default-font-size: Theme.type-body-size;
+
+    in property <[PackageRow]> rows;
+    in property <[ProgressRow]> progress-rows;
+    in property <string> system-text;
+    in property <int> selected-count;
+    in property <int> selected-mb;
+    in property <bool> loading: true;
+    in property <bool> can-install;
+    in-out property <int> page: 0; // 0 install, 1 progress, 2 offline, 3 logs, 4 settings
+    in-out property <int> profile: 0; // 0 recommended, 1 gaming, 2 developer, 3 legacy, 4 all, 5 custom
+    in property <string> version;
+    in property <string> log-dir;
+    in-out property <int> theme-mode: 0; // 0 system, 1 dark, 2 light
+    in-out property <int> language: 0; // 0 system, 1 English, 2 Turkish
+
+    callback toggle(int);
+    callback choose-profile(int);
+    callback install();
+    callback download-only();
+    callback minimize-to-card();
+    callback open-logs();
+    callback back-to-list();
+    callback set-theme(int);
+    callback set-language(int);
+    // Invoked from Rust.
+    callback detection-done();
+    callback session-ended();
+
+    HorizontalLayout {
+        // Sidebar
+        Rectangle {
+            width: 220px;
+            background: Theme.surface;
+            VerticalLayout {
+                padding: Theme.space-4;
+                spacing: Theme.space-1;
+                HorizontalLayout {
+                    padding-left: Theme.space-2;
+                    padding-bottom: Theme.space-5;
+                    padding-top: Theme.space-2;
+                    spacing: Theme.space-2;
+                    Rectangle {
+                        width: 10px;
+                        height: 10px;
+                        border-radius: 5px;
+                        background: Theme.accent;
+                        y: (parent.height - self.height) / 2;
+                    }
+                    Text {
+                        text: "CAIOR";
+                        color: Theme.ink;
+                        font-size: Theme.type-wordmark-size;
+                        font-weight: Theme.type-wordmark-weight;
+                        letter-spacing: Theme.type-wordmark-spacing;
+                    }
+                }
+                NavItem {
+                    text: @tr("Install");
+                    icon: Icons.package;
+                    active: root.page == 0 || root.page == 1;
+                    clicked => { root.page = AppState.busy || AppState.finished ? 1 : 0; }
+                }
+                NavItem { text: @tr("Offline package"); icon: Icons.offline; active: root.page == 2; clicked => { root.page = 2; } }
+                NavItem { text: @tr("Logs"); icon: Icons.history; active: root.page == 3; clicked => { root.page = 3; } }
+                NavItem { text: @tr("Settings"); icon: Icons.settings; active: root.page == 4; clicked => { root.page = 4; } }
+                Rectangle { vertical-stretch: 1; }
+                Text {
+                    text: root.system-text;
+                    color: Theme.muted;
+                    font-size: Theme.type-small-size;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: "v" + root.version;
+                    color: Theme.code-muted;
+                    font-family: Theme.font-mono;
+                    font-size: Theme.type-meta-size;
+                }
+            }
+        }
+        Rectangle { width: 1px; background: Theme.line; }
+
+        // Content
+        Rectangle {
+            horizontal-stretch: 1;
+
+            // Page 0: choose packages
+            if root.page == 0: VerticalLayout {
+                padding-left: Theme.space-6;
+                padding-right: Theme.space-6;
+                padding-top: Theme.space-6;
+                padding-bottom: 76px;
+                spacing: Theme.space-3;
+                Text {
+                    text: @tr("Runtime packages");
+                    color: Theme.ink;
+                    font-size: 28px;
+                    font-weight: Theme.type-h2-weight;
+                    letter-spacing: Theme.type-h2-spacing;
+                }
+                Text {
+                    text: @tr("Pick what this PC is missing and install it in one go. Everything installs silently.");
+                    color: Theme.muted;
+                    font-size: Theme.type-lead-size;
+                    wrap: word-wrap;
+                }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    padding-top: Theme.space-2;
+                    alignment: start;
+                    Chip { text: @tr("Recommended"); selected: root.profile == 0; clicked => { root.choose-profile(0); } }
+                    Chip { text: @tr("Gaming"); selected: root.profile == 1; clicked => { root.choose-profile(1); } }
+                    Chip { text: @tr("Developer"); selected: root.profile == 2; clicked => { root.choose-profile(2); } }
+                    Chip { text: @tr("Legacy"); selected: root.profile == 3; clicked => { root.choose-profile(3); } }
+                    Chip { text: @tr("Everything"); selected: root.profile == 4; clicked => { root.choose-profile(4); } }
+                    if root.profile == 5: Chip { text: @tr("Custom"); selected: true; }
+                }
+                Rectangle { height: 1px; background: Theme.line; }
+                if root.loading: Text {
+                    text: @tr("Checking what is installed...");
+                    color: Theme.muted;
+                    vertical-stretch: 1;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+                if !root.loading: ListView {
+                    vertical-stretch: 1;
+                    for row[i] in root.rows: PackageListRow {
+                        item: row;
+                        toggled => { root.toggle(i); }
+                    }
+                }
+            }
+
+            // Page 1: progress
+            if root.page == 1: VerticalLayout {
+                padding-left: Theme.space-6;
+                padding-right: Theme.space-6;
+                padding-top: Theme.space-6;
+                padding-bottom: 76px;
+                spacing: Theme.space-3;
+                Text {
+                    text: AppState.finished ? AppState.summary-title : @tr("Installing");
+                    color: Theme.ink;
+                    font-size: 28px;
+                    font-weight: Theme.type-h2-weight;
+                    letter-spacing: Theme.type-h2-spacing;
+                }
+                Text {
+                    text: AppState.finished ? AppState.summary-body : AppState.counter + "  " + AppState.current-name + "  " + AppState.stage-text;
+                    color: AppState.finished && AppState.summary-warn ? Theme.warn : Theme.muted;
+                    font-size: Theme.type-lead-size;
+                    wrap: word-wrap;
+                }
+                ProgressBar { value: AppState.overall; }
+                Rectangle { height: 1px; background: Theme.line; }
+                ListView {
+                    vertical-stretch: 1;
+                    for row in root.progress-rows: ProgressListRow { item: row; }
+                }
+            }
+
+            // Page 2: offline package (phase 6)
+            if root.page == 2: VerticalLayout {
+                padding: Theme.space-6;
+                spacing: Theme.space-4;
+                alignment: start;
+                Text { text: @tr("Offline package"); color: Theme.ink; font-size: 28px; font-weight: Theme.type-h2-weight; }
+                Text {
+                    text: @tr("Download and verify packages without installing them, then keep them on a USB drive for PCs without internet.");
+                    color: Theme.muted;
+                    font-size: Theme.type-lead-size;
+                    wrap: word-wrap;
+                }
+                Note {
+                    title: @tr("Coming in the next version");
+                    body: @tr("For now, use Download only on the Install page; the files stay in the cache folder.");
+                }
+            }
+
+            // Page 3: logs
+            if root.page == 3: VerticalLayout {
+                padding: Theme.space-6;
+                spacing: Theme.space-4;
+                alignment: start;
+                Text { text: @tr("Logs"); color: Theme.ink; font-size: 28px; font-weight: Theme.type-h2-weight; }
+                Text {
+                    text: @tr("Every installation writes a log for each package. Open the folder to read them.");
+                    color: Theme.muted;
+                    font-size: Theme.type-lead-size;
+                    wrap: word-wrap;
+                }
+                Rectangle {
+                    background: Theme.code-bg;
+                    border-radius: Theme.radius-sm;
+                    height: 44px;
+                    Text {
+                        x: Theme.space-4;
+                        text: root.log-dir;
+                        color: Theme.ink;
+                        font-family: Theme.font-mono;
+                        font-size: Theme.type-code-size;
+                        vertical-alignment: center;
+                        height: parent.height;
+                    }
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    Button { text: @tr("Open log folder"); kind: ButtonKind.outline; icon: Icons.folder; has-icon: true; clicked => { root.open-logs(); } }
+                }
+            }
+
+            // Page 4: settings
+            if root.page == 4: VerticalLayout {
+                padding: Theme.space-6;
+                spacing: Theme.space-4;
+                alignment: start;
+                Text { text: @tr("Settings"); color: Theme.ink; font-size: 28px; font-weight: Theme.type-h2-weight; }
+                Text { text: @tr("Theme"); color: Theme.ink; font-weight: 600; }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    alignment: start;
+                    Chip { text: @tr("System"); selected: root.theme-mode == 0; clicked => { root.set-theme(0); } }
+                    Chip { text: @tr("Dark"); selected: root.theme-mode == 1; clicked => { root.set-theme(1); } }
+                    Chip { text: @tr("Light"); selected: root.theme-mode == 2; clicked => { root.set-theme(2); } }
+                }
+                Text { text: @tr("Language"); color: Theme.ink; font-weight: 600; }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    alignment: start;
+                    Chip { text: @tr("System"); selected: root.language == 0; clicked => { root.set-language(0); } }
+                    Chip { text: "English"; selected: root.language == 1; clicked => { root.set-language(1); } }
+                    Chip { text: "Türkçe"; selected: root.language == 2; clicked => { root.set-language(2); } }
+                }
+                Text {
+                    text: @tr("Made with Slint. Fonts: Geist and JetBrains Mono (OFL). Icons: Lucide (ISC).");
+                    color: Theme.code-muted;
+                    font-size: Theme.type-small-size;
+                }
+            }
+        }
+    }
+
+    // Sticky action bar for the install pages.
+    if root.page == 0 || root.page == 1: Rectangle {
+        x: 221px;
+        y: parent.height - self.height;
+        width: parent.width - 221px;
+        height: 68px;
+        background: Theme.surface;
+        Rectangle { y: 0; height: 1px; background: Theme.line; }
+        HorizontalLayout {
+            padding-left: Theme.space-6;
+            padding-right: Theme.space-6;
+            spacing: Theme.space-2;
+            alignment: space-between;
+            Text {
+                text: root.page == 0
+                    ? (root.selected-count == 0 ? @tr("Nothing selected") : @tr("{} selected, about {} MB to download", root.selected-count, root.selected-mb))
+                    : (AppState.finished ? AppState.counter : AppState.stage-text);
+                color: Theme.muted;
+                font-size: Theme.type-small-size;
+                vertical-alignment: center;
+            }
+            HorizontalLayout {
+                spacing: Theme.space-2;
+                alignment: end;
+                padding-top: 14px;
+                padding-bottom: 14px;
+                if root.page == 0: Button {
+                    text: @tr("Download only");
+                    kind: ButtonKind.outline;
+                    enabled: root.can-install;
+                    clicked => { root.download-only(); }
+                }
+                if root.page == 0: Button {
+                    text: @tr("Install");
+                    icon: Icons.download;
+                    has-icon: true;
+                    enabled: root.can-install;
+                    clicked => { root.install(); }
+                }
+                if root.page == 1 && AppState.busy: Button {
+                    text: @tr("Minimize");
+                    kind: ButtonKind.outline;
+                    icon: Icons.minimize;
+                    has-icon: true;
+                    clicked => { root.minimize-to-card(); }
+                }
+                if root.page == 1 && AppState.busy: Button {
+                    text: @tr("Cancel");
+                    kind: ButtonKind.ghost;
+                    clicked => { AppState.cancel(); }
+                }
+                if root.page == 1 && AppState.finished && AppState.reboot-needed: Button {
+                    text: @tr("Restart now");
+                    clicked => { AppState.restart-now(); }
+                }
+                if root.page == 1 && AppState.finished: Button {
+                    text: @tr("Back to the list");
+                    kind: AppState.reboot-needed ? ButtonKind.outline : ButtonKind.primary;
+                    clicked => { root.back-to-list(); }
+                }
+            }
+        }
+    }
+}
+
+// Bottom-right card that follows an installation while the main window is hidden.
+export component MiniCard inherits Window {
+    no-frame: true;
+    always-on-top: true;
+    width: 360px;
+    height: 120px;
+    background: Theme.surface;
+    default-font-family: Theme.font-ui;
+    title: "CAIOR";
+
+    Rectangle {
+        border-width: 1px;
+        border-color: Theme.line-strong;
+        border-radius: 0px;
+    }
+    VerticalLayout {
+        padding: Theme.space-4;
+        spacing: Theme.space-2;
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: AppState.finished && AppState.summary-warn ? Theme.warn : Theme.accent;
+                y: (parent.height - self.height) / 2;
+            }
+            Text { text: "CAIOR"; color: Theme.ink; font-weight: Theme.type-wordmark-weight; font-size: Theme.type-small-size; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: AppState.counter;
+                color: Theme.muted;
+                font-family: Theme.font-mono;
+                font-size: Theme.type-meta-size;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.radius-xs;
+                background: expand.has-hover ? Theme.surface-2 : transparent;
+                accessible-role: button;
+                accessible-label: @tr("Show the main window");
+                Icon { source: Icons.maximize; ink: expand.has-hover ? Theme.ink : Theme.muted; width: 15px; height: 15px; }
+                expand := TouchArea { mouse-cursor: pointer; clicked => { AppState.show-main(); } }
+            }
+        }
+        Text {
+            text: AppState.finished ? AppState.summary-title : AppState.current-name;
+            color: Theme.ink;
+            font-weight: 600;
+            overflow: elide;
+        }
+        ProgressBar { value: AppState.overall; }
+        Text {
+            text: AppState.finished ? AppState.summary-body : AppState.stage-text;
+            color: AppState.finished && AppState.summary-warn ? Theme.warn : Theme.muted;
+            font-size: Theme.type-small-size;
+            overflow: elide;
+        }
+    }
+}

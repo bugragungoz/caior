@@ -16,3 +16,9 @@ caior-core.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
+slint = { version = "1.18.1", default-features = false, features = ["std", "backend-winit", "renderer-software", "accessibility", "compat-1-2", "raw-window-handle-06"] }
+png = "0.17"
+
+[build-dependencies]
+serde_json.workspace = true
+slint-build = "1.18.1"

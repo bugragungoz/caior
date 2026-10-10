@@ -6,7 +6,7 @@ One small Windows app to set up every common runtime after a fresh install: Visu
 - **Create offline package** - downloads and verifies, but does not install. Writes a single portable `.exe` (or a folder) you can keep on a USB drive and use on any PC without internet.
 - Progress stays visible in a small card in the bottom-right corner.
 
-> Status: the command-line installer works (`caior install --profile recommended --silent`); the GUI is next. See [docs/PLAN.md](docs/PLAN.md).
+> Status: alpha. The GUI and the command line both install packages (`caior.exe`, or `caior install --profile recommended --silent`). The offline package builder is next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Repository layout
 
@@ -17,6 +17,7 @@ One small Windows app to set up every common runtime after a fresh install: Visu
 | `assets/` | App icon |
 | `crates/`, `xtask/` | Rust code: core engine, the `caior` app, developer tools |
 | `catalog/` | Package catalog, one TOML file per category |
+| `ui/`, `i18n/` | Slint UI (Bugra design), fonts, icons, Turkish translation |
 | `tools/sandbox/` | Windows Sandbox install test |
 | `legacy/` | Earlier versions (v1 PowerShell tray installer, v2 Tauri app), kept for reference |
 

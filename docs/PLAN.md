@@ -1,6 +1,6 @@
 # CAIOR v3 - Plan
 
-Son güncelleme: 2026-10-11. Durum: Faz 1-3 tamam (CLI ile kurulum çalışıyor, Sandbox'ta doğrulandı). Sıradaki: Faz 4 (GUI).
+Son güncelleme: 2026-10-11. Durum: Faz 1-5 tamam (CLI + GUI + sağ alt kart, Sandbox'ta doğrulandı). Sıradaki: Faz 6 (offline paket).
 
 ## 1. Amaç
 
@@ -138,8 +138,8 @@ Her faz sonunda çalışır, test edilmiş bir ara sonuç olur.
 | **1. Katalog** | Workspace iskeleti, TOML şema + doğrulayıcı, `docs/PACKAGES.md`'deki tüm paketlerin URL / argüman / tespit bilgilerinin resmi kaynaklardan doğrulanması, `xtask catalog check` | Tamam (2026-10-11): 8 kategori, 94 paket, strict kontrol temiz, 100 URL yanıt veriyor. Doğrulama Sandbox kurulumlarıyla yapıldı |
 | **2. Tespit + indirme** | detect modülü, fetch + cache + doğrulama, `caior detect --json` | Tamam (2026-10-10): tespit bu PC'de doğru, SHA256 + WinVerifyTrust çalışıyor |
 | **3. Kurulum motoru + CLI** | Yürütücüler, plan, worker + UAC, log, `caior install` | Tamam (2026-10-11): önerilen profil temiz Sandbox'ta 22/22 paket, 287 sn, ikinci çalıştırmada "yapılacak bir şey yok". VC++ 2005/2008 ve DISM özellikleri Sandbox'ta test edilemiyor (bkz. `tools/sandbox/README.md`), Hyper-V VM gerekiyor |
-| **4. GUI ana pencere** | theme.slint, bileşenler, Kur sayfası, Ayarlar, Kayıtlar | Seç → kur akışı GUI'den çalışıyor, koyu/açık tema |
-| **5. Sağ alt kart + tray** | Mini kart, tray menüsü, bitiş bildirimi, yeniden başlatma diyaloğu | Pencere küçültülünce kurulum kartta izleniyor |
+| **4. GUI ana pencere** | theme.slint, bileşenler, Kur sayfası, Ayarlar, Kayıtlar | Tamam (2026-10-11): Slint (yazılımsal renderer), Bugra token'larından üretilen tema, TR/EN, koyu/açık; Sandbox'ta GUI'den 22/22 kurulum (worker + pipe yolu) |
+| **5. Sağ alt kart** | Mini kart, bitiş durumu, yeniden başlatma butonu | Tamam (2026-10-11): Faz 4 ile birlikte; pencere küçültülünce ya da kapatılınca kurulum kartta sürüyor. Tray ikonu ve Windows bildirimi yapılmadı (gerekirse sonra) |
 | **6. Offline paket** | `pack` (klasör, sonra tek exe), offline kaynak çözümleme, `verify` | Paket internetsiz Sandbox'ta kuruyor |
 | **7. Cila + yayın** | TR/EN, uzaktan imzalı katalog, devam etme, GitHub repo, Actions ile derleme, Release, imzalama araştırması | Kullanıcı onayıyla GitHub'da v3.0.0 |
 

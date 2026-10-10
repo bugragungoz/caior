@@ -64,16 +64,14 @@ fn default_os_arch(pkg: Arch) -> &'static [Arch] {
 }
 
 pub fn applicability(pkg: &Package, sys: &SystemInfo) -> Result<(), NotApplicable> {
-    if let Some(min) = pkg.os_min.as_deref().and_then(|m| m.parse::<Version>().ok()) {
-        if sys.os_version < min {
+    if let Some(min) = pkg.os_min.as_deref().and_then(|m| m.parse::<Version>().ok())
+        && sys.os_version < min {
             return Err(NotApplicable::OsTooOld { min: min.to_string() });
         }
-    }
-    if let Some(max) = pkg.os_max.as_deref().and_then(|m| m.parse::<Version>().ok()) {
-        if sys.os_version.truncated(max.parts().len()) > max {
+    if let Some(max) = pkg.os_max.as_deref().and_then(|m| m.parse::<Version>().ok())
+        && sys.os_version.truncated(max.parts().len()) > max {
             return Err(NotApplicable::OsTooNew { max: max.to_string() });
         }
-    }
     let allowed: &[Arch] = if pkg.os_arch.is_empty() { default_os_arch(pkg.arch) } else { &pkg.os_arch };
     let arch_ok = allowed.contains(&sys.os_arch)
         && !(pkg.arch == Arch::X64 && sys.os_arch == Arch::Arm64 && !sys.is_windows_11());

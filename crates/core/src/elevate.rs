@@ -115,14 +115,13 @@ pub fn run_elevated(pipe_name: &str, args: &[String], mut on_line: impl FnMut(&s
         let pipe = HANDLE(pipe_raw as *mut core::ffi::c_void);
         // SAFETY: valid pipe handle; ERROR_PIPE_CONNECTED means the client was faster.
         let connected = unsafe { ConnectNamedPipe(pipe, None) };
-        if let Err(e) = connected {
-            if e.code() != ERROR_PIPE_CONNECTED.to_hresult() {
+        if let Err(e) = connected
+            && e.code() != ERROR_PIPE_CONNECTED.to_hresult() {
                 unsafe {
                     let _ = CloseHandle(pipe);
                 }
                 return;
             }
-        }
         // SAFETY: ownership of the handle moves into the File, which closes it.
         let file = unsafe { File::from_raw_handle(pipe.0) };
         for line in BufReader::new(file).lines() {

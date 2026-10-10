@@ -123,15 +123,14 @@ pub fn build(
             continue;
         }
         let state = states.get(&pkg.id).cloned().unwrap_or(State::Unknown { reason: "not detected".into() });
-        if let State::Installed { version } = &state {
-            if !opts.reinstall {
+        if let State::Installed { version } = &state
+            && !opts.reinstall {
                 plan.skipped.push(Skipped {
                     id: pkg.id.clone(),
                     reason: SkipReason::AlreadyInstalled { version: version.as_ref().map(ToString::to_string) },
                 });
                 continue;
             }
-        }
         plan.install.push(PlanItem { id: pkg.id.clone(), reason, state });
     }
 

@@ -5,7 +5,12 @@ param(
     [string]$Extra = "",
     # Windows Sandbox ships with the Windows Modules Installer (TrustedInstaller)
     # disabled, which breaks side-by-side (WinSxS) installs such as VC++ 2005/2008.
-    [switch]$EnableServicing
+    [switch]$EnableServicing,
+    # Drive the GUI instead of the CLI (CAIOR_AUTOTEST); screenshots land in results\gui.
+    [switch]$Gui,
+    [int]$GuiProfile = 0,
+    [string]$GuiExclude = "",
+    [switch]$ForceWorker
 )
 
 $ErrorActionPreference = "Continue"
@@ -34,6 +39,21 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 [Environment]::OSVersion.VersionString | Out-File "$out\environment.txt" -Append
 
 & $exe @catalogArgs detect --json --all | Out-File -Encoding utf8 "$out\detect-before.json"
+
+if ($Gui) {
+    $env:CAIOR_AUTOTEST = "$out\gui"
+    $env:CAIOR_AUTOTEST_PROFILE = "$GuiProfile"
+    $env:CAIOR_AUTOTEST_EXCLUDE = $GuiExclude
+    if ($ForceWorker) { $env:CAIOR_FORCE_WORKER = "1" }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    if ($catalogArgs.Count -gt 0) { Start-Process -FilePath $exe -ArgumentList $catalogArgs -Wait } else { Start-Process -FilePath $exe -Wait }
+    "gui seconds=$([int]$sw.Elapsed.TotalSeconds)" | Out-File "$out\install-exit.txt"
+    Copy-Item "C:\ProgramData\CAIOR\logs" "$out\logs" -Recurse -ErrorAction SilentlyContinue
+    & $exe @catalogArgs detect --json --all | Out-File -Encoding utf8 "$out\detect-after.json"
+    Stop-Transcript | Out-Null
+    "done" | Out-File "$out\DONE"
+    return
+}
 
 # -Profile none installs only the ids given in -Extra (e.g. "--id vc-*").
 $selection = @()

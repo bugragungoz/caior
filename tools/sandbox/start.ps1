@@ -7,7 +7,11 @@ param(
     [Parameter(Mandatory = $true)][string]$Results,
     # Optional catalog folder to use instead of the one built into the exe.
     [string]$Catalog = "",
-    [switch]$EnableServicing
+    [switch]$EnableServicing,
+    [switch]$Gui,
+    [int]$GuiProfile = 0,
+    [string]$GuiExclude = "",
+    [switch]$ForceWorker
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,7 +52,7 @@ $wsb = @"
     <MappedFolder><HostFolder>$Results</HostFolder><SandboxFolder>C:\results</SandboxFolder><ReadOnly>false</ReadOnly></MappedFolder>
   </MappedFolders>
   <LogonCommand>
-    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\caior-tools\inside.ps1 -Profile $Profile -Extra "$Extra"$(if ($EnableServicing) { " -EnableServicing" })</Command>
+    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\caior-tools\inside.ps1 -Profile $Profile -Extra "$Extra"$(if ($EnableServicing) { " -EnableServicing" })$(if ($Gui) { " -Gui -GuiProfile $GuiProfile -GuiExclude `"$GuiExclude`"" })$(if ($ForceWorker) { " -ForceWorker" })</Command>
   </LogonCommand>
 </Configuration>
 "@

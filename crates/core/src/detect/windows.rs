@@ -236,11 +236,10 @@ impl Probe for WindowsProbe {
             .map_err(|e| Unavailable(format!("appx query failed: {e}")))?;
         let mut versions = Vec::new();
         for p in packages {
-            if let Ok(v) = p.Id().and_then(|id| id.Version()) {
-                if let Ok(v) = format!("{}.{}.{}.{}", v.Major, v.Minor, v.Build, v.Revision).parse() {
+            if let Ok(v) = p.Id().and_then(|id| id.Version())
+                && let Ok(v) = format!("{}.{}.{}.{}", v.Major, v.Minor, v.Build, v.Revision).parse() {
                     versions.push(v);
                 }
-            }
         }
         Ok(versions)
     }

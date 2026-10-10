@@ -1,7 +1,12 @@
 //! CAIOR entry point. GUI, CLI and the elevated worker share this one exe.
+//! It is a GUI-subsystem program: double-clicking it opens the window without
+//! a console; command-line use attaches to the console of the calling shell.
+
+#![cfg_attr(windows, windows_subsystem = "windows")]
 //! The GUI and the install engine come in later phases; for now the CLI can
 //! list the catalog, detect what is installed, and fetch installers.
 
+mod gui;
 mod install_cmd;
 
 use std::path::{Path, PathBuf};
@@ -61,6 +66,9 @@ enum Command {
     Worker {
         #[arg(long)]
         pipe: String,
+        /// The worker stops after the current installer once this file exists.
+        #[arg(long)]
+        cancel_file: Option<PathBuf>,
         #[command(flatten)]
         sel: install_cmd::SelectionArgs,
     },
@@ -190,24 +198,31 @@ fn fetch_cmd(catalog: &Catalog, ids: &[String], cache: &Path) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    // The worker runs hidden; every other command line use prints to the caller's console.
+    let args: Vec<String> = std::env::args().collect();
+    let is_worker = args.get(1).is_some_and(|a| a == "worker");
+    if args.len() > 1 && !is_worker {
+        caior_core::desktop::attach_parent_console();
+    }
     let cli = Cli::parse();
     let catalog = load_catalog(&cli.catalog)?;
     match cli.command {
+        None => gui::run(catalog),
         Some(Command::Detect { json, all }) => detect_cmd(&catalog, json, all),
         Some(Command::Fetch { ids, cache }) => fetch_cmd(&catalog, &ids, &cache),
         Some(Command::Install { sel, yes, silent, dry_run }) => {
             let code = install_cmd::install(&catalog, &sel, yes || silent, dry_run)?;
             std::process::exit(code)
         }
-        Some(Command::Worker { pipe, sel }) => {
+        Some(Command::Worker { pipe, cancel_file, sel }) => {
             // The elevated worker only trusts the catalog compiled into it.
             if cli.catalog.is_some() && !cfg!(debug_assertions) {
                 bail!("Error: the worker does not accept --catalog");
             }
-            let code = install_cmd::worker(&catalog, &pipe, &sel)?;
+            let code = install_cmd::worker(&catalog, &pipe, cancel_file.as_deref(), &sel)?;
             std::process::exit(code)
         }
-        Some(Command::List) | None => {
+        Some(Command::List) => {
             for c in &catalog.categories {
                 println!("[{}] {}", c.category.id, c.category.name.en);
                 for p in &c.packages {

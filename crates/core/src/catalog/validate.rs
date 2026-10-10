@@ -99,13 +99,11 @@ pub fn validate(catalog: &Catalog, opts: ValidateOptions) -> Vec<Issue> {
             if let Some(prev) = package_file.insert(&pkg.id, &entry.file) {
                 ctx.error(format!("duplicate package id (also in {prev})"));
             }
-            if let Some(group) = &pkg.group {
-                if let Some(prev) = group_category.insert(group, &cat.id) {
-                    if prev != cat.id {
+            if let Some(group) = &pkg.group
+                && let Some(prev) = group_category.insert(group, &cat.id)
+                    && prev != cat.id {
                         ctx.error(format!("group {group:?} spans categories {prev} and {}", cat.id));
                     }
-                }
-            }
             check_package(&mut ctx, pkg, opts, &guid_re, &hex_re);
         }
         issues.append(&mut ctx.issues);
@@ -126,11 +124,10 @@ fn check_text(ctx: &mut Ctx, field: &str, text: &Text) {
 }
 
 fn check_version(ctx: &mut Ctx, field: &str, value: &Option<String>) {
-    if let Some(v) = value {
-        if v.parse::<Version>().is_err() {
+    if let Some(v) = value
+        && v.parse::<Version>().is_err() {
             ctx.error(format!("{field} {v:?} is not a dotted numeric version"));
         }
-    }
 }
 
 fn check_package(ctx: &mut Ctx, pkg: &Package, opts: ValidateOptions, guid_re: &Regex, hex_re: &Regex) {
@@ -172,11 +169,10 @@ fn check_package(ctx: &mut Ctx, pkg: &Package, opts: ValidateOptions, guid_re: &
             ctx.warn(format!("profile {p:?} listed twice"));
         }
     }
-    if let Some(h) = &pkg.homepage {
-        if !h.starts_with("https://") {
+    if let Some(h) = &pkg.homepage
+        && !h.starts_with("https://") {
             ctx.warn("homepage should be https");
         }
-    }
 
     check_install(ctx, pkg);
     check_source(ctx, pkg, opts, hex_re);
@@ -358,11 +354,10 @@ fn check_detect(ctx: &mut Ctx, arch: Arch, d: &Detect, guid_re: &Regex, depth: u
             need(ctx, "display_name", d.display_name.is_some());
             need(ctx, "view", d.view.is_some());
             for (field, re) in [("display_name", &d.display_name), ("publisher", &d.publisher)] {
-                if let Some(re) = re {
-                    if let Err(e) = Regex::new(re) {
+                if let Some(re) = re
+                    && let Err(e) = Regex::new(re) {
                         ctx.error(format!("detect.{field} is not a valid regex: {e}"));
                     }
-                }
             }
         }
         DetectKind::MsiProduct => {
@@ -370,11 +365,10 @@ fn check_detect(ctx: &mut Ctx, arch: Arch, d: &Detect, guid_re: &Regex, depth: u
                 ctx.error("detect.kind = msi-product needs detect.product_code or detect.upgrade_code");
             }
             for (field, code) in [("product_code", &d.product_code), ("upgrade_code", &d.upgrade_code)] {
-                if let Some(code) = code {
-                    if !guid_re.is_match(code) {
+                if let Some(code) = code
+                    && !guid_re.is_match(code) {
                         ctx.error(format!("detect.{field} must be a braced GUID like {{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}}"));
                     }
-                }
             }
         }
         DetectKind::FileVersion => need(ctx, "path", d.path.as_deref().is_some_and(|p| !p.is_empty())),
@@ -483,11 +477,10 @@ fn check_dependencies(catalog: &Catalog, issues: &mut Vec<Issue>) {
         stack.push(id);
         if let Some(pkg) = ids.get(id) {
             for dep in &pkg.depends {
-                if let Some((dep_id, _)) = ids.get_key_value(dep.as_str()) {
-                    if let Some(c) = visit(dep_id, ids, marks, stack) {
+                if let Some((dep_id, _)) = ids.get_key_value(dep.as_str())
+                    && let Some(c) = visit(dep_id, ids, marks, stack) {
                         return Some(c);
                     }
-                }
             }
         }
         stack.pop();

@@ -60,11 +60,10 @@ fn best_found(found: impl IntoIterator<Item = Found>) -> Option<Option<Version>>
     let mut best: Option<Version> = None;
     for f in found {
         any = true;
-        if let Some(v) = f.version {
-            if best.as_ref().is_none_or(|b| &v > b) {
+        if let Some(v) = f.version
+            && best.as_ref().is_none_or(|b| &v > b) {
                 best = Some(v);
             }
-        }
     }
     any.then_some(best)
 }
@@ -148,16 +147,14 @@ fn registry(d: &Detect, probe: &dyn Probe) -> State {
         let Some(data) = probe.reg_value(hive, view, key, name) else {
             return State::Missing;
         };
-        if let Some(expected) = &d.equals {
-            if !value_matches(&data, expected) {
+        if let Some(expected) = &d.equals
+            && !value_matches(&data, expected) {
                 return State::Missing;
             }
-        }
-        if let Some(min) = d.min_dword {
-            if as_dword(&data).is_none_or(|n| n < u64::from(min)) {
+        if let Some(min) = d.min_dword
+            && as_dword(&data).is_none_or(|n| n < u64::from(min)) {
                 return State::Missing;
             }
-        }
     }
     let mut version = None;
     if let Some(name) = d.version_value.as_deref() {

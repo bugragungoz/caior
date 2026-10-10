@@ -3,6 +3,8 @@
 pub mod catalog;
 pub mod detect;
 #[cfg(windows)]
+pub mod desktop;
+#[cfg(windows)]
 pub mod elevate;
 pub mod fetch;
 pub mod install;

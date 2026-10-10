@@ -213,11 +213,10 @@ fn download(
     }
     out.flush()?;
     drop(out);
-    if let Some(t) = total {
-        if done != t {
+    if let Some(t) = total
+        && done != t {
             return Err(FetchError::Http(format!("connection closed after {done} of {t} bytes")));
         }
-    }
     fs::rename(&part, dest)?;
     Ok(())
 }

@@ -1,0 +1,188 @@
+# Turkish translation of the CAIOR user interface.
+# Source strings live in ui/*.slint (@tr). Bugra content rules: short, plain,
+# sentence case, no exclamation marks; errors start with "Hata:".
+msgid ""
+msgstr ""
+"Project-Id-Version: CAIOR 3.0\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Administrator approval was declined."
+msgstr "Yönetici onayı verilmedi."
+
+msgid "All done"
+msgstr "Tamamlandı"
+
+msgid "Back to the list"
+msgstr "Listeye dön"
+
+msgid "Cancel"
+msgstr "İptal"
+
+msgid "Checking what is installed..."
+msgstr "Kurulu olanlar kontrol ediliyor..."
+
+msgid "Coming in the next version"
+msgstr "Sonraki sürümde geliyor"
+
+msgid "Custom"
+msgstr "Özel"
+
+msgid "Dark"
+msgstr "Koyu"
+
+msgid "Developer"
+msgstr "Geliştirici"
+
+msgid "Download and verify packages without installing them, then keep them on a USB drive for PCs without internet."
+msgstr "Paketleri kurmadan indirip doğrulayın, sonra internetsiz bilgisayarlar için USB bellekte saklayın."
+
+msgid "Download complete"
+msgstr "İndirme tamamlandı"
+
+msgid "Download only"
+msgstr "Sadece indir"
+
+msgid "Downloading {}%"
+msgstr "İndiriliyor %{}"
+
+msgid "Error"
+msgstr "Hata"
+
+msgid "Error: {}"
+msgstr "Hata: {}"
+
+msgid "Every installation writes a log for each package. Open the folder to read them."
+msgstr "Her kurulum, her paket için bir kayıt dosyası yazar. Okumak için klasörü açın."
+
+msgid "Everything"
+msgstr "Hepsi"
+
+msgid "Finished with errors"
+msgstr "Hatalarla bitti"
+
+msgid "For now, use Download only on the Install page; the files stay in the cache folder."
+msgstr "Şimdilik Kur sayfasındaki Sadece indir seçeneğini kullanın; dosyalar önbellek klasöründe kalır."
+
+msgid "Gaming"
+msgstr "Oyun"
+
+msgid "Install"
+msgstr "Kur"
+
+msgid "Installed"
+msgstr "Kurulu"
+
+msgid "Installed, restart needed"
+msgstr "Kuruldu, yeniden başlatma gerekli"
+
+msgid "Installing"
+msgstr "Kuruluyor"
+
+msgid "Installing..."
+msgstr "Kuruluyor..."
+
+msgid "Language"
+msgstr "Dil"
+
+msgid "Legacy"
+msgstr "Eski"
+
+msgid "Light"
+msgstr "Açık"
+
+msgid "Logs"
+msgstr "Kayıtlar"
+
+msgid "Made with Slint. Fonts: Geist and JetBrains Mono (OFL). Icons: Lucide (ISC)."
+msgstr "Slint ile yapıldı. Yazı tipleri: Geist ve JetBrains Mono (OFL). İkonlar: Lucide (ISC)."
+
+msgid "Minimize"
+msgstr "Küçült"
+
+msgid "Missing"
+msgstr "Eksik"
+
+msgid "Not for this PC"
+msgstr "Bu PC için değil"
+
+msgid "Nothing selected"
+msgstr "Seçim yok"
+
+msgid "Nothing was installed"
+msgstr "Hiçbir şey kurulmadı"
+
+msgid "Offline package"
+msgstr "Offline paket"
+
+msgid "Open log folder"
+msgstr "Kayıt klasörünü aç"
+
+msgid "Out of support"
+msgstr "Desteği bitti"
+
+msgid "Pick what this PC is missing and install it in one go. Everything installs silently."
+msgstr "Bu bilgisayarda eksik olanları seçin ve tek seferde kurun. Hepsi sessizce kurulur."
+
+msgid "Preparing..."
+msgstr "Hazırlanıyor..."
+
+msgid "Ready"
+msgstr "Hazır"
+
+msgid "Recommended"
+msgstr "Önerilen"
+
+msgid "Restart now"
+msgstr "Şimdi yeniden başlat"
+
+msgid "Runtime packages"
+msgstr "Runtime paketleri"
+
+msgid "Settings"
+msgstr "Ayarlar"
+
+msgid "Show the main window"
+msgstr "Ana pencereyi göster"
+
+msgid "Skipped"
+msgstr "Atlandı"
+
+msgid "Stopped"
+msgstr "Durduruldu"
+
+msgid "System"
+msgstr "Sistem"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Unknown"
+msgstr "Bilinmiyor"
+
+msgid "Update available"
+msgstr "Güncelleme var"
+
+msgid "Waiting for administrator approval..."
+msgstr "Yönetici onayı bekleniyor..."
+
+msgid "Waiting"
+msgstr "Sırada"
+
+msgid "{} installed, {} failed. See the logs for details."
+msgstr "{} kuruldu, {} başarısız. Ayrıntılar kayıtlarda."
+
+msgid "{} installed. Restart Windows to finish."
+msgstr "{} kuruldu. Bitirmek için Windows'u yeniden başlatın."
+
+msgid "{} installed."
+msgstr "{} kuruldu."
+
+msgid "{} packages downloaded and verified."
+msgstr "{} paket indirildi ve doğrulandı."
+
+msgid "{} selected, about {} MB to download"
+msgstr "{} seçili, yaklaşık {} MB indirilecek"

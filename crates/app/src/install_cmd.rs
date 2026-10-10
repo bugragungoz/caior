@@ -307,7 +307,7 @@ pub fn install(catalog: &Catalog, sel: &SelectionArgs, yes: bool, dry_run: bool)
 
 /// The elevated side. Rebuilds the plan from the built-in catalog and streams
 /// events into the caller's pipe.
-pub fn worker(catalog: &Catalog, pipe: &str, sel: &SelectionArgs) -> Result<i32> {
+pub fn worker(catalog: &Catalog, pipe: &str, cancel_file: Option<&std::path::Path>, sel: &SelectionArgs) -> Result<i32> {
     let sys = SystemInfo::current();
     let out = Mutex::new(caior_core::elevate::connect(pipe)?);
     let send = |e: &Event| {
@@ -328,7 +328,20 @@ pub fn worker(catalog: &Catalog, pipe: &str, sel: &SelectionArgs) -> Result<i32>
             return Ok(1);
         }
     };
-    let cancel = AtomicBool::new(false);
+    // The unelevated caller asks to cancel by creating this file; the pipe only goes one way.
+    let cancel = std::sync::Arc::new(AtomicBool::new(false));
+    if let Some(path) = cancel_file.map(std::path::Path::to_path_buf) {
+        let cancel = cancel.clone();
+        std::thread::spawn(move || {
+            while !cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                if path.exists() {
+                    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        });
+    }
     let summary = session::run(catalog, &plan, &sel.session_options(), &cancel, &|e| send(&e));
+    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
     Ok(summary.exit_code())
 }

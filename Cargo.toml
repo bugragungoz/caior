@@ -7,7 +7,7 @@ version = "3.0.0-alpha.1"
 edition = "2024"
 license = "MIT"
 authors = ["bugragungoz"]
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 caior-core = { path = "crates/core" }
