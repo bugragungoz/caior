@@ -1,0 +1,497 @@
+# Visual C++ Redistributables.
+# Sources: Microsoft Learn "Latest supported Visual C++ Redistributable downloads"
+# (https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist), Microsoft Download
+# Center pages, Aaron Stebner's archived Microsoft blog (silent switches, product codes) and
+# the winget-pkgs manifests (manifests/m/Microsoft/VCRedist/*) as a cross-check.
+# Detection keys were confirmed with reg query on a Windows 11 x64 host.
+
+[category]
+id = "vcredist"
+name = { en = "Visual C++ Redistributables", tr = "Visual C++ Yeniden Dağıtılabilir Paketleri" }
+description = { en = "Microsoft C and C++ runtime libraries that many programs and games need, from 2005 to the latest v14.", tr = "Birçok program ve oyunun ihtiyaç duyduğu Microsoft C ve C++ çalışma zamanı kitaplıkları, 2005'ten en güncel v14'e kadar." }
+order = 10
+icon = "cpu"
+
+# ---------------------------------------------------------------- 2005 SP1 MFC Security Update
+
+[[package]]
+id = "vc-2005-x86"
+name = "Visual C++ 2005 Redistributable (x86)"
+description = { en = "Needed by 32-bit programs and games built with Visual Studio 2005.", tr = "Visual Studio 2005 ile derlenmiş 32 bit program ve oyunlar için gerekir." }
+version = "8.0.50727.6195"
+arch = "x86"
+profiles = ["recommended", "gaming"]
+order = 100
+group = "vc-2005"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2005 SP1 MFC Security Update (KB2538242, MS11-025), linked from the Learn page via Download Center id=26347 (microsoft.com/download/details.aspx?id=26347); same URL and hash in winget Microsoft.VCRedist.2005.x86. The EXE is an IExpress wrapper whose built-in command is a plain 'msiexec /i vcredist.msi' (UI shown), so plain /q is not silent; args are the silent form from Aaron Stebner's MS blog (learn.microsoft.com/archive/blogs/astebner/mailbag-how-to-perform-a-silent-install-of-the-visual-c-8-0-runtime-files-vcredist-packages) plus msiexec /norestart so /qn never reboots on its own. Product code {710F4C1C-...} from the same blog (.../updated-vc-8-0-runtime-redistributable-packages-are-included-in-visual-studio-2005-sp1) and winget; confirmed on the dev host (Uninstall WOW6432Node, DisplayVersion 8.0.61001, upgrade code {86C9D5AA-...}). The product code pins the exact build, so no min_version. Out of support since 2016-04-12. Hash matches winget's InstallerSha256; Authenticode Valid, CN=Microsoft Corporation."
+
+[package.source]
+url = "https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE"
+filename = "vcredist_2005_x86.exe"
+signer = ["Microsoft Corporation"]
+size = 2710520
+sha256 = "8648c5fc29c44b9112fe52f9a33f80e7fc42d10f3b5b42b2121542a13e44adfd"
+
+[package.install]
+kind = "exe"
+args = '/q:a /c:"msiexec /i vcredist.msi /qn /norestart"'
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+product_code = "{710F4C1C-CC18-4C49-8CBF-51240C89A1A2}"
+
+[[package]]
+id = "vc-2005-x64"
+name = "Visual C++ 2005 Redistributable (x64)"
+description = { en = "Needed by 64-bit programs and games built with Visual Studio 2005.", tr = "Visual Studio 2005 ile derlenmiş 64 bit program ve oyunlar için gerekir." }
+version = "8.0.50727.6195"
+arch = "x64"
+profiles = ["recommended", "gaming"]
+order = 101
+group = "vc-2005"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2005 SP1 MFC Security Update (KB2538242, MS11-025), Download Center id=26347; same URL and hash in winget Microsoft.VCRedist.2005.x64. IExpress wrapper around vcredist.msi like the x86 file, so the same silent args from Aaron Stebner's MS blog (mailbag-how-to-perform-a-silent-install-of-the-visual-c-8-0-runtime-files-vcredist-packages). Product code {AD8A2FA1-...} from the same blog (updated-vc-8-0-runtime-redistributable-packages-are-included-in-visual-studio-2005-sp1) and winget; not installed on the dev host, so not confirmed locally. Out of support since 2016-04-12. Hash matches winget's InstallerSha256; Authenticode Valid, CN=Microsoft Corporation."
+
+[package.source]
+url = "https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE"
+filename = "vcredist_2005_x64.exe"
+signer = ["Microsoft Corporation"]
+size = 3179000
+sha256 = "4487570bd86e2e1aac29db2a1d0a91eb63361fcaac570808eb327cd4e0e2240d"
+
+[package.install]
+kind = "exe"
+args = '/q:a /c:"msiexec /i vcredist.msi /qn /norestart"'
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+product_code = "{AD8A2FA1-06E7-4B0D-927D-6E54B3D31028}"
+
+# ---------------------------------------------------------------- 2008 SP1 MFC Security Update
+
+[[package]]
+id = "vc-2008-x86"
+name = "Visual C++ 2008 Redistributable (x86)"
+description = { en = "Needed by 32-bit programs and games built with Visual Studio 2008.", tr = "Visual Studio 2008 ile derlenmiş 32 bit program ve oyunlar için gerekir." }
+version = "9.0.30729.6161"
+arch = "x86"
+profiles = ["recommended", "gaming"]
+order = 110
+group = "vc-2008"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2008 SP1 MFC Security Update (KB2538243, MS11-025). URL from the Learn page and Download Center id=26368. Learn lists 9.0.30729.5677, which is the bootstrapper's own file version (refresh reads the same); the MSI it installs is 9.0.30729.6161 (winget Microsoft.VCRedist.2008.x86 maps this URL and hash to that product code). Silent switch /q from Aaron Stebner's MS blog (learn.microsoft.com/archive/blogs/astebner/mailbag-how-to-perform-a-silent-install-of-the-visual-c-2008-redistributable-packages); the 2008 package does not take /norestart. Each 2008 update is its own MSI product installed side by side (the dev host has .17, .4148 and .6161), so detection uses the MFC update's product code; confirmed in Uninstall on the dev host. Out of support since 2018-04-10."
+
+[package.source]
+url = "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x86.exe"
+filename = "vcredist_2008_x86.exe"
+signer = ["Microsoft Corporation"]
+size = 4483040
+sha256 = "8742bcbf24ef328a72d2a27b693cc7071e38d3bb4b9b44dec42aa3d2c8d61d92"
+
+[package.install]
+kind = "exe"
+args = "/q"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+product_code = "{9BE518E6-ECC6-35A9-88E4-87755C07200F}"
+
+[[package]]
+id = "vc-2008-x64"
+name = "Visual C++ 2008 Redistributable (x64)"
+description = { en = "Needed by 64-bit programs and games built with Visual Studio 2008.", tr = "Visual Studio 2008 ile derlenmiş 64 bit program ve oyunlar için gerekir." }
+version = "9.0.30729.6161"
+arch = "x64"
+profiles = ["recommended", "gaming"]
+order = 111
+group = "vc-2008"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2008 SP1 MFC Security Update (KB2538243). URL from the Learn page and Download Center id=26368; Learn's 9.0.30729.5677 is the bootstrapper's file version, the installed MSI is 9.0.30729.6161 (winget Microsoft.VCRedist.2008.x64, same URL and hash). Silent /q per Aaron Stebner's MS blog (no /norestart support). Product code from winget; confirmed in Uninstall on the dev host (64-bit view, DisplayVersion 9.0.30729.6161). Out of support since 2018-04-10."
+
+[package.source]
+url = "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe"
+filename = "vcredist_2008_x64.exe"
+signer = ["Microsoft Corporation"]
+size = 5211080
+sha256 = "c5e273a4a16ab4d5471e91c7477719a2f45ddadb76c7f98a38fa5074a6838654"
+
+[package.install]
+kind = "exe"
+args = "/q"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+product_code = "{5FCE6D76-F5DC-37AB-B2B8-22AB8CEDB1D4}"
+
+# ---------------------------------------------------------------- 2010 SP1 MFC Security Update
+
+[[package]]
+id = "vc-2010-x86"
+name = "Visual C++ 2010 Redistributable (x86)"
+description = { en = "Needed by 32-bit programs and games built with Visual Studio 2010.", tr = "Visual Studio 2010 ile derlenmiş 32 bit program ve oyunlar için gerekir." }
+version = "10.0.40219.325"
+arch = "x86"
+profiles = ["recommended", "gaming"]
+order = 120
+group = "vc-2010"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2010 SP1 MFC Security Update (KB2565063). URL from the Learn page and Download Center id=26999. Silent /q /norestart and exit codes 0/3010 from Aaron Stebner's MS blog (learn.microsoft.com/archive/blogs/astebner/mailbag-how-to-perform-a-silent-install-of-the-visual-c-2010-redistributable-packages). SP1 and the MFC update share the MSI product code, so detection reads the VCRedist key (WOW6432Node on x64, confirmed on the dev host: Version v10.0.40219.325). Out of support since 2020-07-14."
+
+[package.source]
+url = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe"
+filename = "vcredist_2010_x86.exe"
+signer = ["Microsoft Corporation"]
+size = 8993744
+sha256 = "99dce3c841cc6028560830f7866c9ce2928c98cf3256892ef8e6cf755147b0d8"
+
+[package.install]
+kind = "exe"
+args = "/q /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\10.0\VC\VCRedist\x86'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "10.0.40219.325"
+
+[[package]]
+id = "vc-2010-x64"
+name = "Visual C++ 2010 Redistributable (x64)"
+description = { en = "Needed by 64-bit programs and games built with Visual Studio 2010.", tr = "Visual Studio 2010 ile derlenmiş 64 bit program ve oyunlar için gerekir." }
+version = "10.0.40219.325"
+arch = "x64"
+profiles = ["recommended", "gaming"]
+order = 121
+group = "vc-2010"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2010 SP1 MFC Security Update (KB2565063). URL from the Learn page and Download Center id=26999. Silent /q /norestart per Aaron Stebner's MS blog. The x64 VCRedist key is also written to the 32-bit view (WOW6432Node), confirmed on the dev host: Version v10.0.40219.325. Out of support since 2020-07-14."
+
+[package.source]
+url = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe"
+filename = "vcredist_2010_x64.exe"
+signer = ["Microsoft Corporation"]
+size = 10277328
+sha256 = "f3b7a76d84d23f91957aa18456a14b4e90609e4ce8194c5653384ed38dada6f3"
+
+[package.install]
+kind = "exe"
+args = "/q /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\10.0\VC\VCRedist\x64'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "10.0.40219.325"
+
+# ---------------------------------------------------------------- 2012 Update 4
+
+[[package]]
+id = "vc-2012-x86"
+name = "Visual C++ 2012 Redistributable (x86)"
+description = { en = "Needed by 32-bit programs and games built with Visual Studio 2012.", tr = "Visual Studio 2012 ile derlenmiş 32 bit program ve oyunlar için gerekir." }
+version = "11.0.61030.0"
+arch = "x86"
+profiles = ["recommended", "gaming"]
+order = 130
+group = "vc-2012"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2012 Update 4. URL from the Learn page and Download Center id=30679. Burn bundle: /install /quiet /norestart (Learn 'Redistribute Visual C++ files', command-line options; winget Microsoft.VCRedist.2012.x86). Detection: VC\\Runtimes\\x86 in the 32-bit view, confirmed on the dev host (Version v11.0.61030.00). Out of support since 2023-01-10."
+
+[package.source]
+url = "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe"
+filename = "vcredist_2012_x86.exe"
+signer = ["Microsoft Corporation"]
+size = 6554576
+sha256 = "b924ad8062eaf4e70437c8be50fa612162795ff0839479546ce907ffa8d6e386"
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\11.0\VC\Runtimes\x86'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "11.0.61030"
+
+[[package]]
+id = "vc-2012-x64"
+name = "Visual C++ 2012 Redistributable (x64)"
+description = { en = "Needed by 64-bit programs and games built with Visual Studio 2012.", tr = "Visual Studio 2012 ile derlenmiş 64 bit program ve oyunlar için gerekir." }
+version = "11.0.61030.0"
+arch = "x64"
+profiles = ["recommended", "gaming"]
+order = 131
+group = "vc-2012"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2012 Update 4. URL from the Learn page and Download Center id=30679; winget Microsoft.VCRedist.2012.x64 has the same URL and hash. Burn bundle: /install /quiet /norestart. On the dev host the x64 Runtimes key exists only in the 32-bit view (Version v11.0.51106.01 from Update 1, so it shows as outdated); the 11.0 key is absent from the 64-bit view, same layout Learn documents for 14.0. Out of support since 2023-01-10."
+
+[package.source]
+url = "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe"
+filename = "vcredist_2012_x64.exe"
+signer = ["Microsoft Corporation"]
+size = 7186992
+sha256 = "681be3e5ba9fd3da02c09d7e565adfa078640ed66a0d58583efad2c1e3cc4064"
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\11.0\VC\Runtimes\x64'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "11.0.61030"
+
+# ---------------------------------------------------------------- 2013 Update 5
+
+[[package]]
+id = "vc-2013-x86"
+name = "Visual C++ 2013 Redistributable (x86)"
+description = { en = "Needed by 32-bit programs and games built with Visual Studio 2013.", tr = "Visual Studio 2013 ile derlenmiş 32 bit program ve oyunlar için gerekir." }
+version = "12.0.40664.0"
+arch = "x86"
+profiles = ["recommended", "gaming"]
+order = 140
+group = "vc-2013"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2013 Update 5 with the high-DPI MFC update (12.0.40664). aka.ms link from the Learn page (frozen file, so pinned by hash); it redirects to the download.visualstudio.microsoft.com URL used as fallback, which winget Microsoft.VCRedist.2013.x86 lists with the same hash. Burn bundle: /install /quiet /norestart. Detection: VC\\Runtimes\\x86 in the 32-bit view, confirmed on the dev host (Version v12.0.40649.05, older, so it shows as outdated). Out of support (Learn)."
+
+[package.source]
+url = "https://aka.ms/highdpimfc2013x86enu"
+fallback_urls = ["https://download.visualstudio.microsoft.com/download/pr/10912113/5da66ddebb0ad32ebd4b922fd82e8e25/vcredist_x86.exe"]
+filename = "vcredist_2013_x86.exe"
+signer = ["Microsoft Corporation"]
+size = 6510136
+sha256 = "53b605d1100ab0a88b867447bbf9274b5938125024ba01f5105a9e178a3dcdbd"
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\12.0\VC\Runtimes\x86'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "12.0.40664"
+
+[[package]]
+id = "vc-2013-x64"
+name = "Visual C++ 2013 Redistributable (x64)"
+description = { en = "Needed by 64-bit programs and games built with Visual Studio 2013.", tr = "Visual Studio 2013 ile derlenmiş 64 bit program ve oyunlar için gerekir." }
+version = "12.0.40664.0"
+arch = "x64"
+profiles = ["recommended", "gaming"]
+order = 141
+group = "vc-2013"
+legacy = true
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "VC++ 2013 Update 5 with the high-DPI MFC update (12.0.40664). aka.ms link from the Learn page (frozen file, so pinned by hash); it redirects to the download.visualstudio.microsoft.com URL used as fallback, which winget Microsoft.VCRedist.2013.x64 lists with the same hash. Burn bundle: /install /quiet /norestart. On the dev host the x64 Runtimes key exists only in the 32-bit view (Version v12.0.21005.01, matching the installed x64 Minimum Runtime MSI), not the 64-bit view the old hint said. Out of support (Learn)."
+
+[package.source]
+url = "https://aka.ms/highdpimfc2013x64enu"
+fallback_urls = ["https://download.visualstudio.microsoft.com/download/pr/10912041/cee5d6bca2ddbcd039da727bf4acb48a/vcredist_x64.exe"]
+filename = "vcredist_2013_x64.exe"
+signer = ["Microsoft Corporation"]
+size = 7200744
+sha256 = "a4bba7701e355ae29c403431f871a537897c363e215cafe706615e270984f17c"
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\12.0\VC\Runtimes\x64'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "12.0.40664"
+
+# ---------------------------------------------------------------- v14 (2015-2026), latest
+
+[[package]]
+id = "vc-v14-x86"
+name = "Visual C++ v14 Redistributable (x86)"
+description = { en = "Needed by most current 32-bit programs and games built with Visual Studio 2015 to 2026.", tr = "Visual Studio 2015-2026 ile derlenmiş güncel 32 bit program ve oyunların çoğu için gerekir." }
+version = "14.x (latest patch)"
+arch = "x86"
+os_min = "10.0.10240"
+profiles = ["recommended", "gaming"]
+order = 150
+group = "vc-v14"
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "Permalink aka.ms/vc14/vc_redist.x86.exe from the Learn page (replaces aka.ms/vs/17/release/...); one v14 runtime for apps built with VS 2015 to 2026, and it upgrades the 2015 redist in place. The VS 2026 build supports Windows 10/11 and Server 2016+ only (Learn). Args from Learn 'Redistribute Visual C++ files' (command-line options); 1638 is the Burn 'newer version already installed' result. Detection: Learn documents Wow6432Node\\...\\14.0\\VC\\Runtimes\\{x86|x64|arm64} with REG_SZ Version; X86 confirmed on the dev host (32-bit view only, v14.51.36247.00). min_version = 14.51.36247, the build the permalink served on 2026-10-10 (refresh file_version; winget Microsoft.VCRedist.2015+.x86 14.51.36247.0 has the same hash); raise it when Microsoft ships a new one."
+
+[package.source]
+url = "https://aka.ms/vc14/vc_redist.x86.exe"
+filename = "vc_redist.x86.exe"
+evergreen = true
+signer = ["Microsoft Corporation"]
+size = 6941536
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 1200
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X86'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "14.51.36247"
+
+[[package]]
+id = "vc-v14-x64"
+name = "Visual C++ v14 Redistributable (x64)"
+description = { en = "Needed by most current 64-bit programs and games built with Visual Studio 2015 to 2026.", tr = "Visual Studio 2015-2026 ile derlenmiş güncel 64 bit program ve oyunların çoğu için gerekir." }
+version = "14.x (latest patch)"
+arch = "x64"
+os_min = "10.0.10240"
+profiles = ["recommended", "gaming"]
+order = 151
+group = "vc-v14"
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "Permalink aka.ms/vc14/vc_redist.x64.exe from the Learn page. Per Learn the x64 package also carries the ARM64 binaries for ARM64 devices. Args from Learn 'Redistribute Visual C++ files'. Detection: Learn documents the key under Wow6432Node; on the dev host the X64 key exists in both views (v14.51.36247.00), the documented 32-bit one is used. min_version = 14.51.36247, the build the permalink served on 2026-10-10 (refresh file_version; same hash as winget Microsoft.VCRedist.2015+.x64 14.51.36247.0)."
+
+[package.source]
+url = "https://aka.ms/vc14/vc_redist.x64.exe"
+filename = "vc_redist.x64.exe"
+evergreen = true
+signer = ["Microsoft Corporation"]
+size = 18731856
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 1200
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "14.51.36247"
+
+[[package]]
+id = "vc-v14-arm64"
+name = "Visual C++ v14 Redistributable (ARM64)"
+description = { en = "Needed by native ARM64 programs built with Visual Studio 2017 to 2026.", tr = "Visual Studio 2017-2026 ile derlenmiş yerel ARM64 programlar için gerekir." }
+version = "14.x (latest patch)"
+arch = "arm64"
+os_min = "10.0.10240"
+profiles = ["recommended", "gaming"]
+order = 152
+group = "vc-v14"
+homepage = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist"
+notes = "Permalink aka.ms/vc14/vc_redist.arm64.exe from the Learn page. Args from Learn 'Redistribute Visual C++ files'. Not verifiable on the x64 dev host: Learn documents the key under Wow6432Node, so the 32-bit view is checked first and the 64-bit view as a fallback (only the ARM64 runtime writes Runtimes\\ARM64, so no false positive). min_version = 14.51.36247, the build the permalink served on 2026-10-10 (refresh file_version; same hash as winget Microsoft.VCRedist.2015+.arm64 14.51.36247.0)."
+
+[package.source]
+url = "https://aka.ms/vc14/vc_redist.arm64.exe"
+filename = "vc_redist.arm64.exe"
+evergreen = true
+signer = ["Microsoft Corporation"]
+size = 11870816
+
+[package.install]
+kind = "exe"
+args = "/install /quiet /norestart"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 1200
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\ARM64'
+view = "32"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "14.51.36247"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\ARM64'
+view = "64"
+value = "Installed"
+equals = 1
+version_value = "Version"
+min_version = "14.51.36247"

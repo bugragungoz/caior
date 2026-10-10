@@ -1,0 +1,797 @@
+# App platform runtimes: WebView2, Windows App Runtime, WinGet / App Installer, PowerShell 7.
+# Sources: Microsoft Learn "Distribute your app and the WebView2 Runtime"
+# (learn.microsoft.com/microsoft-edge/webview2/concepts/distribution), the WebView2 download page
+# (developer.microsoft.com/microsoft-edge/webview2), Windows App SDK "Downloads", "Downloads archive",
+# "Release channels" and "Deployment guide for unpackaged apps"
+# (learn.microsoft.com/windows/apps/windows-app-sdk/...), the WindowsAppSDK installer source
+# (github.com/microsoft/WindowsAppSDK/blob/main/installer/dev/install.cpp), the microsoft/winget-cli
+# GitHub releases and its Microsoft.WinGet.Client module source (AppxModuleHelper.cs), Microsoft
+# Learn "Use WinGet" and "DISM app package servicing options", "Install PowerShell 7 on Windows",
+# the PowerShell GitHub releases, and the winget-pkgs manifests as a cross-check.
+# Package identities inside the downloaded installers and bundles were read from their AppxManifest
+# files without running anything. Detection keys and appx families were confirmed with reg query /
+# Get-AppxPackage on a Windows 11 x64 host (2026-10-10).
+
+[category]
+id = "platform"
+name = { en = "App platforms", tr = "Uygulama platformları" }
+description = { en = "Shared runtimes that modern Windows apps build on: WebView2, Windows App Runtime, WinGet and PowerShell 7.", tr = "Modern Windows uygulamalarının üzerine kurulduğu ortak çalışma zamanları: WebView2, Windows App Runtime, WinGet ve PowerShell 7." }
+order = 40
+icon = "app-window"
+
+# ---------------------------------------------------------------- Microsoft Edge WebView2 Runtime
+
+[[package]]
+id = "webview2-x86"
+name = "Microsoft Edge WebView2 Runtime (x86)"
+description = { en = "Needed by apps that show web content with Microsoft Edge WebView2. For 32-bit Windows.", tr = "Web içeriğini Microsoft Edge WebView2 ile gösteren uygulamalar için gerekir. 32 bit Windows içindir." }
+version = "Evergreen (latest)"
+arch = "x86"
+os_arch = ["x86"]
+profiles = ["recommended"]
+order = 400
+group = "webview2"
+homepage = "https://developer.microsoft.com/microsoft-edge/webview2"
+notes = "Evergreen Standalone Installer x86: go.microsoft.com/fwlink/?linkid=2099617 (the 'Standalone x86' link of developer.microsoft.com/microsoft-edge/webview2). It redirects to msedge.sf.dl.delivery.mp.microsoft.com/.../MicrosoftEdgeWebView2RuntimeInstallerX86.exe; on 2026-10-10 that is the same file and SHA256 as winget-pkgs Microsoft.EdgeWebView2Runtime 155.0.4283.45 (x86). Silent: 'MicrosoftEdgeWebView2RuntimeInstaller{X64/X86/ARM64}.exe /silent /install' (learn.microsoft.com/microsoft-edge/webview2/concepts/distribution, Offline deployment); run elevated it installs per machine. Architecture: the same doc says one Evergreen Runtime serves all apps on the device and the bootstrapper installs the runtime that matches the device architecture; only WebView2Loader.dll is per app architecture. So each standalone installer is offered only on its own OS arch and the native runtime also serves 32-bit apps. Detection per the same doc: pv (REG_SZ) under HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5} on 64-bit Windows (plain SOFTWARE on 32-bit Windows; view 32 covers both) for per-machine, HKCU\\Software\\Microsoft\\EdgeUpdate\\Clients\\{...} for per-user; missing, null, empty or 0.0.0.0 means not installed. min_version 0.0.0.1 only turns pv = 0.0.0.0 into 'outdated'; an empty pv still reads as installed (schema gap reported). No patch floor: the runtime updates itself. winget-pkgs also lists -2147219416 / -2147219187 as success codes; Microsoft does not document them, so they are left out."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2099617"
+filename = "MicrosoftEdgeWebView2RuntimeInstallerX86.exe"
+evergreen = true
+signer = ["Microsoft Corporation"]
+size = 190068944
+
+[package.install]
+kind = "exe"
+args = "/silent /install"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+view = "32"
+value = "pv"
+version_value = "pv"
+min_version = "0.0.0.1"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKCU"
+key = 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+view = "64"
+value = "pv"
+version_value = "pv"
+min_version = "0.0.0.1"
+
+[[package]]
+id = "webview2-x64"
+name = "Microsoft Edge WebView2 Runtime (x64)"
+description = { en = "Needed by apps that show web content with Microsoft Edge WebView2. Serves 32-bit apps as well.", tr = "Web içeriğini Microsoft Edge WebView2 ile gösteren uygulamalar için gerekir. 32 bit uygulamalara da hizmet eder." }
+version = "Evergreen (latest)"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["recommended"]
+order = 401
+group = "webview2"
+homepage = "https://developer.microsoft.com/microsoft-edge/webview2"
+notes = "Evergreen Standalone Installer x64: go.microsoft.com/fwlink/?linkid=2124701 (the 'Standalone x64' link of developer.microsoft.com/microsoft-edge/webview2), redirects to .../MicrosoftEdgeWebView2RuntimeInstallerX64.exe; same file and SHA256 as winget-pkgs Microsoft.EdgeWebView2Runtime 155.0.4283.45 (x64) on 2026-10-10. Silent '/silent /install' (learn.microsoft.com/microsoft-edge/webview2/concepts/distribution). That doc: only one Evergreen Runtime is needed for all apps on the device, and the bootstrapper installs the one matching the device architecture; so on x64 Windows only this package is offered and 32-bit apps use it too. Dev host: per-machine runtime in 'C:\\Program Files (x86)\\Microsoft\\EdgeWebView', pv 154.0.4258.62 under HKLM WOW6432Node (reg query); HKCU key absent. See webview2-x86 for the detection rule and exit codes."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2124701"
+filename = "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+evergreen = true
+signer = ["Microsoft Corporation"]
+size = 214090448
+
+[package.install]
+kind = "exe"
+args = "/silent /install"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+view = "32"
+value = "pv"
+version_value = "pv"
+min_version = "0.0.0.1"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKCU"
+key = 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+view = "64"
+value = "pv"
+version_value = "pv"
+min_version = "0.0.0.1"
+
+[[package]]
+id = "webview2-arm64"
+name = "Microsoft Edge WebView2 Runtime (ARM64)"
+description = { en = "Needed by apps that show web content with Microsoft Edge WebView2. For ARM64 Windows; serves x64 and x86 apps as well.", tr = "Web içeriğini Microsoft Edge WebView2 ile gösteren uygulamalar için gerekir. ARM64 Windows içindir; x64 ve x86 uygulamalara da hizmet eder." }
+version = "Evergreen (latest)"
+arch = "arm64"
+os_arch = ["arm64"]
+profiles = ["recommended"]
+order = 402
+group = "webview2"
+homepage = "https://developer.microsoft.com/microsoft-edge/webview2"
+notes = "Evergreen Standalone Installer ARM64: go.microsoft.com/fwlink/?linkid=2099616 (the 'Standalone ARM64' link of developer.microsoft.com/microsoft-edge/webview2), redirects to .../MicrosoftEdgeWebView2RuntimeInstallerARM64.exe; same file and SHA256 as winget-pkgs Microsoft.EdgeWebView2Runtime 155.0.4283.45 (arm64) on 2026-10-10. Silent '/silent /install' (learn.microsoft.com/microsoft-edge/webview2/concepts/distribution). Offered only on ARM64 Windows (one runtime per device, matching the device architecture, same doc). ARM64 is 64-bit Windows, so the doc's WOW6432Node location applies (view 32). See webview2-x86 for the detection rule and exit codes."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2099616"
+filename = "MicrosoftEdgeWebView2RuntimeInstallerARM64.exe"
+evergreen = true
+signer = ["Microsoft Corporation"]
+size = 217489616
+
+[package.install]
+kind = "exe"
+args = "/silent /install"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+view = "32"
+value = "pv"
+version_value = "pv"
+min_version = "0.0.0.1"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKCU"
+key = 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+view = "64"
+value = "pv"
+version_value = "pv"
+min_version = "0.0.0.1"
+
+# ---------------------------------------------------------------- Windows App Runtime 1.8
+# Every WindowsAppRuntimeInstall-<arch>.exe (1.8 and 2.x) carries the framework, Main, Singleton
+# and DDLM packages for x86, x64 and arm64 (read from the AppxManifest files inside, nothing run).
+# The installer picks what applies to the native OS arch (install.cpp IsPackageApplicable, via
+# IsWow64Process2): x64 Windows gets x86+x64 frameworks and DDLMs plus x64 Main/Singleton; ARM64
+# Windows 11 gets all three framework arches. So one installer per OS arch is enough (os_arch).
+# The "latest" aliases (aka.ms/windowsappsdk/<major.minor>/latest/...) are not on any Learn page and
+# are not kept current: on 2026-10-10 1.8/latest still served 1.8.10 (framework 8000.921.1539.0)
+# while 1.8.12 was out. The documented versioned links are used instead, pinned with SHA256.
+
+[[package]]
+id = "windows-app-runtime-1-8-x86"
+name = "Windows App Runtime 1.8 (x86)"
+description = { en = "Needed by apps built with Windows App SDK 1.8 (WinUI 3). For 32-bit Windows.", tr = "Windows App SDK 1.8 (WinUI 3) ile geliştirilmiş uygulamalar için gerekir. 32 bit Windows içindir." }
+version = "1.8.12 (1.8.260921001)"
+arch = "x86"
+os_min = "10.0.17763"
+os_arch = ["x86"]
+profiles = ["legacy"]
+order = 410
+group = "windows-app-runtime-1-8"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads-archive"
+notes = "aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-x86.exe, the 1.8.12 (1.8.260921001, 2026-09-24) link on learn.microsoft.com/windows/apps/windows-app-sdk/downloads-archive; redirects to download.microsoft.com. Release channels page (learn.microsoft.com/windows/apps/windows-app-sdk/release-channels): 1.8 released 2025-09-09, latest patch 1.8.260921001, end of servicing 2026-09-24, so it is out of support and frozen: pinned, legacy. Kept because apps pin a Windows App SDK major.minor. Switch '--quiet' and return codes from learn.microsoft.com/windows/apps/windows-app-sdk/deploy-unpackaged-apps: 0 success, 0x80073d06 one or more packages failed, 0x80070005 not elevated; elevated runs provision Main/Singleton/DDLM for all users (frameworks cannot be provisioned by that API, install.cpp). Detection follows the doc's runtime check (framework and Main must both be registered): appx families Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe and MicrosoftCorporationII.WinAppRuntime.Main.1.8_8wekyb3d8bbwe (identity names read from the installer); min_version 8000.994.2142.0 = the framework and Main version all three 1.8.12 installers carry (read from their AppxManifest files). Singleton (shared by 1.x and 2.x) and DDLM (family name holds the version) are not checked. Dev host has only the 1.8 framework (8000.946.1701.0, from Store apps) and no Main.1.8, so it reads as not installed there, which is right for unpackaged 1.8 apps."
+
+[package.source]
+url = "https://aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-x86.exe"
+filename = "WindowsAppRuntimeInstall-1.8.12-x86.exe"
+signer = ["Microsoft Corporation"]
+size = 106831160
+sha256 = "cb106f15fed4f8b41f82f2afc22e160b9cc074c3781693811c69b86bcef3e02b"
+
+[package.install]
+kind = "exe"
+args = "--quiet"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe"
+min_version = "8000.994.2142.0"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "MicrosoftCorporationII.WinAppRuntime.Main.1.8_8wekyb3d8bbwe"
+min_version = "8000.994.2142.0"
+
+[[package]]
+id = "windows-app-runtime-1-8-x64"
+name = "Windows App Runtime 1.8 (x64)"
+description = { en = "Needed by apps built with Windows App SDK 1.8 (WinUI 3). Includes the 32-bit parts as well.", tr = "Windows App SDK 1.8 (WinUI 3) ile geliştirilmiş uygulamalar için gerekir. 32 bit bileşenleri de içerir." }
+version = "1.8.12 (1.8.260921001)"
+arch = "x64"
+os_min = "10.0.17763"
+os_arch = ["x64"]
+profiles = ["legacy"]
+order = 411
+group = "windows-app-runtime-1-8"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads-archive"
+notes = "aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-x64.exe (1.8.12 on learn.microsoft.com/windows/apps/windows-app-sdk/downloads-archive). On x64 Windows it installs the x86 and x64 frameworks and DDLMs plus x64 Main/Singleton (install.cpp; the deploy-unpackaged-apps doc lists Fwk=[x86, x64] for a complete x64 runtime), so no separate x86 package is offered here. Same switches, return codes, support dates and detection as windows-app-runtime-1-8-x86."
+
+[package.source]
+url = "https://aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-x64.exe"
+filename = "WindowsAppRuntimeInstall-1.8.12-x64.exe"
+signer = ["Microsoft Corporation"]
+size = 106879800
+sha256 = "7c092e85fc1e3e7cb2bd7d549aaab03caf924131f15d9b20b1855457a98205aa"
+
+[package.install]
+kind = "exe"
+args = "--quiet"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe"
+min_version = "8000.994.2142.0"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "MicrosoftCorporationII.WinAppRuntime.Main.1.8_8wekyb3d8bbwe"
+min_version = "8000.994.2142.0"
+
+[[package]]
+id = "windows-app-runtime-1-8-arm64"
+name = "Windows App Runtime 1.8 (ARM64)"
+description = { en = "Needed by apps built with Windows App SDK 1.8 (WinUI 3). For ARM64 Windows; includes the x64 and x86 parts.", tr = "Windows App SDK 1.8 (WinUI 3) ile geliştirilmiş uygulamalar için gerekir. ARM64 Windows içindir; x64 ve x86 bileşenlerini de içerir." }
+version = "1.8.12 (1.8.260921001)"
+arch = "arm64"
+os_min = "10.0.17763"
+os_arch = ["arm64"]
+profiles = ["legacy"]
+order = 412
+group = "windows-app-runtime-1-8"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads-archive"
+notes = "aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-arm64.exe (1.8.12 on learn.microsoft.com/windows/apps/windows-app-sdk/downloads-archive). On ARM64 Windows 11 it installs the arm64, x64 and x86 frameworks (install.cpp). Same switches, return codes, support dates and detection as windows-app-runtime-1-8-x86."
+
+[package.source]
+url = "https://aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-arm64.exe"
+filename = "WindowsAppRuntimeInstall-1.8.12-arm64.exe"
+signer = ["Microsoft Corporation"]
+size = 106880824
+sha256 = "03f25794a74f0881ddfc4a7c35082db1ba5a5a4d91b1fa755ac916eca880771f"
+
+[package.install]
+kind = "exe"
+args = "--quiet"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe"
+min_version = "8000.994.2142.0"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "MicrosoftCorporationII.WinAppRuntime.Main.1.8_8wekyb3d8bbwe"
+min_version = "8000.994.2142.0"
+
+# ---------------------------------------------------------------- Windows App Runtime 2
+
+[[package]]
+id = "windows-app-runtime-2-x86"
+name = "Windows App Runtime 2 (x86)"
+description = { en = "Needed by apps built with Windows App SDK 2.x (WinUI 3). For 32-bit Windows.", tr = "Windows App SDK 2.x (WinUI 3) ile geliştirilmiş uygulamalar için gerekir. 32 bit Windows içindir." }
+version = "2.5.1"
+arch = "x86"
+os_min = "10.0.17763"
+os_arch = ["x86"]
+profiles = ["recommended"]
+order = 415
+group = "windows-app-runtime-2"
+homepage = "https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads"
+notes = "aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x86.exe, the newest stable (2.5.1, 2026-09-16) on learn.microsoft.com/windows/apps/windows-app-sdk/downloads; redirects to download.microsoft.com. Release channels page: 2.0 is the Current release, end of servicing 2027-04-29; 1.8 and older are out of support, so 2.x is the only supported group. Since 2.0 the package family follows the major version only: this installer carries Microsoft.WindowsAppRuntime.2 / MicrosoftCorporationII.WinAppRuntime.Main.2 version 2.5.1.0 (read from its AppxManifest files), and the dev host holds 2.3.1.0, 2.4.0.0 and 2.5.1.0 under the one family Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe (Get-AppxPackage). So the newest 2.x serves apps built with any older 2.x. Pinned because no documented evergreen link exists (see the 1.8 note); bump URL, filename, version, min_version and hashes when a newer 2.x ships. '--quiet' and return codes as for 1.8 (deploy-unpackaged-apps doc). Detection: framework and Main families (deploy-unpackaged-apps runtime check), min_version = the 2.5.1.0 this file carries; dev host: both present at 2.5.1.0 (x64 Main, x64 + x86 framework)."
+
+[package.source]
+url = "https://aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x86.exe"
+filename = "WindowsAppRuntimeInstall-2.5.1-x86.exe"
+signer = ["Microsoft Corporation"]
+size = 120158520
+sha256 = "76dbd7c272cee0bf18f0b7228255b353d669cd55dc530209c45646f47acb89d4"
+
+[package.install]
+kind = "exe"
+args = "--quiet"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe"
+min_version = "2.5.1.0"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "MicrosoftCorporationII.WinAppRuntime.Main.2_8wekyb3d8bbwe"
+min_version = "2.5.1.0"
+
+[[package]]
+id = "windows-app-runtime-2-x64"
+name = "Windows App Runtime 2 (x64)"
+description = { en = "Needed by apps built with Windows App SDK 2.x (WinUI 3). Includes the 32-bit parts as well.", tr = "Windows App SDK 2.x (WinUI 3) ile geliştirilmiş uygulamalar için gerekir. 32 bit bileşenleri de içerir." }
+version = "2.5.1"
+arch = "x64"
+os_min = "10.0.17763"
+os_arch = ["x64"]
+profiles = ["recommended"]
+order = 416
+group = "windows-app-runtime-2"
+homepage = "https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads"
+notes = "aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe (2.5.1 on learn.microsoft.com/windows/apps/windows-app-sdk/downloads). On x64 Windows it also installs the x86 framework and DDLM (install.cpp), so 32-bit 2.x apps are covered. Same facts as windows-app-runtime-2-x86."
+
+[package.source]
+url = "https://aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-x64.exe"
+filename = "WindowsAppRuntimeInstall-2.5.1-x64.exe"
+signer = ["Microsoft Corporation"]
+size = 120199480
+sha256 = "931a421e8dc3e6e67724806cb67fecdbb88dfe323f0170842eb4a4b4b149f1e2"
+
+[package.install]
+kind = "exe"
+args = "--quiet"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe"
+min_version = "2.5.1.0"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "MicrosoftCorporationII.WinAppRuntime.Main.2_8wekyb3d8bbwe"
+min_version = "2.5.1.0"
+
+[[package]]
+id = "windows-app-runtime-2-arm64"
+name = "Windows App Runtime 2 (ARM64)"
+description = { en = "Needed by apps built with Windows App SDK 2.x (WinUI 3). For ARM64 Windows; includes the x64 and x86 parts.", tr = "Windows App SDK 2.x (WinUI 3) ile geliştirilmiş uygulamalar için gerekir. ARM64 Windows içindir; x64 ve x86 bileşenlerini de içerir." }
+version = "2.5.1"
+arch = "arm64"
+os_min = "10.0.17763"
+os_arch = ["arm64"]
+profiles = ["recommended"]
+order = 417
+group = "windows-app-runtime-2"
+homepage = "https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads"
+notes = "aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-arm64.exe (2.5.1 on learn.microsoft.com/windows/apps/windows-app-sdk/downloads). On ARM64 Windows 11 it installs the arm64, x64 and x86 frameworks (install.cpp). Same facts as windows-app-runtime-2-x86."
+
+[package.source]
+url = "https://aka.ms/windowsappsdk/2.5/2.5.1/windowsappruntimeinstall-arm64.exe"
+filename = "WindowsAppRuntimeInstall-2.5.1-arm64.exe"
+signer = ["Microsoft Corporation"]
+size = 120210744
+sha256 = "d5e4d34547eb4e31c64bf1532415b3019c0d92b750e72eb18d3d95bd00feacbb"
+
+[package.install]
+kind = "exe"
+args = "--quiet"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe"
+min_version = "2.5.1.0"
+
+[[package.detect.rules]]
+kind = "appx"
+family = "MicrosoftCorporationII.WinAppRuntime.Main.2_8wekyb3d8bbwe"
+min_version = "2.5.1.0"
+
+# ---------------------------------------------------------------- WinGet dependencies (hidden)
+# From DesktopAppInstaller_Dependencies.zip of the same winget-cli release as the bundle below
+# (v1.29.380). Its DesktopAppInstaller_Dependencies.json lists Microsoft.VCLibs.140.00
+# 14.0.33519.0, Microsoft.VCLibs.140.00.UWPDesktop 14.0.33728.0 and
+# Microsoft.WindowsAppRuntime.1.8 8000.616.304.0, matching the PackageDependency elements of the
+# bundle's AppxManifest. Zip layout: <arch>/<Name>_<Version>_<arch>.appx (listed, nothing run).
+# Microsoft.UI.Xaml is no longer a dependency of this release. Microsoft's own installer
+# (Repair-WinGetPackageManager, Microsoft.WinGet.Client AppxModuleHelper.cs) adds exactly these
+# entries with Add-AppxPackage for the OS arch and then provisions the bundle. The DISM docs say
+# dependency packages cannot be provisioned on their own with /PackagePath, so these install for
+# the current user (provisioned = false); the system keeps one staged copy.
+
+[[package]]
+id = "vclibs-140-x86"
+name = "Microsoft.VCLibs.140.00 framework (x86)"
+version = "14.0.33519.0"
+arch = "x86"
+os_arch = ["x86"]
+order = 420
+group = "vclibs-140"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on x86 Windows. Entry x86/Microsoft.VCLibs.140.00_14.0.33519.0_x86.appx of github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip (zip SHA256 equals the GitHub asset digest). Offered only on the OS arch, as Repair-WinGetPackageManager does when no frameworks are present (AppxModuleHelper.cs InitFrameworkArchitectures). Pinned with the bundle: the entry names carry versions. Detection: appx family (dev host: 14.0.33519.0 x64/x86)."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "x86/Microsoft.VCLibs.140.00_14.0.33519.0_x86.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.VCLibs.140.00_8wekyb3d8bbwe"
+min_version = "14.0.33519.0"
+
+[[package]]
+id = "vclibs-140-x64"
+name = "Microsoft.VCLibs.140.00 framework (x64)"
+version = "14.0.33519.0"
+arch = "x64"
+os_arch = ["x64"]
+order = 421
+group = "vclibs-140"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on x64 Windows. Entry x64/Microsoft.VCLibs.140.00_14.0.33519.0_x64.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. See vclibs-140-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "x64/Microsoft.VCLibs.140.00_14.0.33519.0_x64.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.VCLibs.140.00_8wekyb3d8bbwe"
+min_version = "14.0.33519.0"
+
+[[package]]
+id = "vclibs-140-arm64"
+name = "Microsoft.VCLibs.140.00 framework (ARM64)"
+version = "14.0.33519.0"
+arch = "arm64"
+os_arch = ["arm64"]
+order = 422
+group = "vclibs-140"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on ARM64 Windows. Entry arm64/Microsoft.VCLibs.140.00_14.0.33519.0_arm64.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. See vclibs-140-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "arm64/Microsoft.VCLibs.140.00_14.0.33519.0_arm64.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.VCLibs.140.00_8wekyb3d8bbwe"
+min_version = "14.0.33519.0"
+
+[[package]]
+id = "vclibs-140-uwpdesktop-x86"
+name = "Microsoft.VCLibs.140.00.UWPDesktop framework (x86)"
+version = "14.0.33728.0"
+arch = "x86"
+os_arch = ["x86"]
+order = 423
+group = "vclibs-140-uwpdesktop"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on x86 Windows. Entry x86/Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x86.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. The old aka.ms/Microsoft.VCLibs.<arch>.14.00.Desktop.appx links still answer, but the WinGet module source calls them deprecated and their version (14.0.30704) is below the 14.0.33728.0 the bundle needs, so the release zip is used. See vclibs-140-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "x86/Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x86.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.VCLibs.140.00.UWPDesktop_8wekyb3d8bbwe"
+min_version = "14.0.33728.0"
+
+[[package]]
+id = "vclibs-140-uwpdesktop-x64"
+name = "Microsoft.VCLibs.140.00.UWPDesktop framework (x64)"
+version = "14.0.33728.0"
+arch = "x64"
+os_arch = ["x64"]
+order = 424
+group = "vclibs-140-uwpdesktop"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on x64 Windows. Entry x64/Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x64.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. See vclibs-140-uwpdesktop-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "x64/Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_x64.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.VCLibs.140.00.UWPDesktop_8wekyb3d8bbwe"
+min_version = "14.0.33728.0"
+
+[[package]]
+id = "vclibs-140-uwpdesktop-arm64"
+name = "Microsoft.VCLibs.140.00.UWPDesktop framework (ARM64)"
+version = "14.0.33728.0"
+arch = "arm64"
+os_arch = ["arm64"]
+order = 425
+group = "vclibs-140-uwpdesktop"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on ARM64 Windows. Entry arm64/Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_arm64.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. See vclibs-140-uwpdesktop-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "arm64/Microsoft.VCLibs.140.00.UWPDesktop_14.0.33728.0_arm64.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.VCLibs.140.00.UWPDesktop_8wekyb3d8bbwe"
+min_version = "14.0.33728.0"
+
+[[package]]
+id = "windows-app-runtime-1-8-framework-x86"
+name = "Microsoft.WindowsAppRuntime.1.8 framework (x86)"
+version = "8000.616.304.0"
+arch = "x86"
+os_arch = ["x86"]
+order = 426
+group = "windows-app-runtime-1-8-framework"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 (PackageDependency Microsoft.WindowsAppRuntime.1.8 MinVersion 8000.616.304.0) on x86 Windows. Entry x86/Microsoft.WindowsAppRuntime.1.8_8000.616.304.0_x86.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip; the WinGet module installs this framework-only entry, not the full Windows App Runtime installer. Any newer 1.8 framework (e.g. from windows-app-runtime-1-8-*) satisfies it. Detection: framework family, min_version = the bundle's MinVersion. See vclibs-140-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "x86/Microsoft.WindowsAppRuntime.1.8_8000.616.304.0_x86.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe"
+min_version = "8000.616.304.0"
+
+[[package]]
+id = "windows-app-runtime-1-8-framework-x64"
+name = "Microsoft.WindowsAppRuntime.1.8 framework (x64)"
+version = "8000.616.304.0"
+arch = "x64"
+os_arch = ["x64"]
+order = 427
+group = "windows-app-runtime-1-8-framework"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on x64 Windows. Entry x64/Microsoft.WindowsAppRuntime.1.8_8000.616.304.0_x64.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. Dev host: family present at 8000.946.1701.0 x64/x86 (Get-AppxPackage). See windows-app-runtime-1-8-framework-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "x64/Microsoft.WindowsAppRuntime.1.8_8000.616.304.0_x64.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe"
+min_version = "8000.616.304.0"
+
+[[package]]
+id = "windows-app-runtime-1-8-framework-arm64"
+name = "Microsoft.WindowsAppRuntime.1.8 framework (ARM64)"
+version = "8000.616.304.0"
+arch = "arm64"
+os_arch = ["arm64"]
+order = 428
+group = "windows-app-runtime-1-8-framework"
+hidden = true
+notes = "Dependency of WinGet / App Installer 1.29.380 on ARM64 Windows. Entry arm64/Microsoft.WindowsAppRuntime.1.8_8000.616.304.0_arm64.appx of the v1.29.380 DesktopAppInstaller_Dependencies.zip. See windows-app-runtime-1-8-framework-x86."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip"
+filename = "DesktopAppInstaller_Dependencies.zip"
+signer = ["Microsoft Corporation"]
+extract = { archive = "zip", entry = "arm64/Microsoft.WindowsAppRuntime.1.8_8000.616.304.0_arm64.appx" }
+size = 97760717
+sha256 = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+
+[package.install]
+kind = "appx"
+timeout_sec = 300
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe"
+min_version = "8000.616.304.0"
+
+# ---------------------------------------------------------------- WinGet / App Installer
+
+[[package]]
+id = "winget"
+name = "WinGet (App Installer)"
+description = { en = "Windows Package Manager. Already part of Windows 11; needed on LTSC and other systems without the Microsoft Store.", tr = "Windows Paket Yöneticisi. Windows 11'de zaten var; LTSC ve Microsoft Store olmayan diğer sistemlerde gerekir." }
+version = "1.29.380"
+arch = "neutral"
+os_min = "10.0.17763"
+profiles = ["recommended"]
+order = 430
+depends = [
+  "vclibs-140-x86", "vclibs-140-x64", "vclibs-140-arm64",
+  "vclibs-140-uwpdesktop-x86", "vclibs-140-uwpdesktop-x64", "vclibs-140-uwpdesktop-arm64",
+  "windows-app-runtime-1-8-framework-x86", "windows-app-runtime-1-8-framework-x64", "windows-app-runtime-1-8-framework-arm64",
+]
+group = "winget"
+warning = { en = "Installs for all users without the Store license file. The winget command may only work after you sign out and back in. Not supported on Windows Server 2019, Windows Server 2022 or Server Core.", tr = "Store lisans dosyası olmadan tüm kullanıcılar için kurulur. winget komutu ancak oturumu kapatıp yeniden açtıktan sonra çalışabilir. Windows Server 2019, Windows Server 2022 ve Server Core'da desteklenmez." }
+homepage = "https://learn.microsoft.com/windows/package-manager/winget/"
+notes = "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle from github.com/microsoft/winget-cli/releases/tag/v1.29.380 (the 'latest' release on 2026-10-10, published 2026-09-21; SHA256 equals the GitHub asset digest and winget-pkgs Microsoft.AppInstaller 1.29.380). Pinned, not releases/latest: the dependency zip entries carry version numbers and a newer bundle may need newer frameworks, so bundle and dependencies must come from one release; bump the tag, entry names and hashes together. Bundle AppxManifest (read, not run): Microsoft.DesktopAppInstaller 1.29.380.0, TargetDeviceFamily MinVersion 10.0.17763.0 (Learn 'Use WinGet': WinGet needs Windows 10 1809 / 17763 or later), PackageDependency WindowsAppRuntime.1.8 >= 8000.616.304.0, VCLibs.140.00 >= 14.0.33519.0, VCLibs.140.00.UWPDesktop >= 14.0.33728.0; no Microsoft.UI.Xaml any more. License: Microsoft's Repair-WinGetPackageManager -AllUsers (learn.microsoft.com/windows/package-manager/winget/, Microsoft.WinGet.Client AppxModuleHelper.cs) runs Add-AppxProvisionedPackage -Online -PackagePath <bundle> -LicensePath <release asset e53e159d00e04f729cc2180cffd1c02e_License1.xml>, then Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe for the current user. Our engine runs Add-AppxProvisionedPackage -SkipLicense, which the DISM docs reserve for apps that do not need a license, and does not register the package for the current user; per the same docs a package provisioned online is registered for the current user only at the next sign-in, so post-install detection may read 'not detected' until then (schema gaps reported). Supported OS (winget-cli README): Windows 10 1809+, Windows 11, Windows Server 2025; Server 2019/2022 only experimental and unsupported, never Server Core. Server 2019 shares build 17763 with Windows 10 1809, so os_min cannot exclude it; the warning says so (schema gap reported). Detection: appx family Microsoft.DesktopAppInstaller_8wekyb3d8bbwe (dev host: 1.29.380.0 x64). No min_version: App Installer is kept current by the Store on desktop Windows."
+
+[package.source]
+url = "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+filename = "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+signer = ["Microsoft Corporation"]
+size = 217276577
+sha256 = "65dea9c01ce08ee7b763366b27c0e651f97db857c11ca9b9c301826c10092f2e"
+
+[package.install]
+kind = "appx"
+provisioned = true
+timeout_sec = 900
+
+[package.detect]
+kind = "appx"
+family = "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe"
+
+# ---------------------------------------------------------------- PowerShell 7 (LTS)
+
+[[package]]
+id = "powershell-7-x64"
+name = "PowerShell 7.6 LTS (x64)"
+description = { en = "Modern cross-platform PowerShell, needed by scripts and tools that require pwsh. Runs side by side with Windows PowerShell 5.1.", tr = "Modern, çok platformlu PowerShell; pwsh isteyen betik ve araçlar için gerekir. Windows PowerShell 5.1 ile yan yana çalışır." }
+version = "7.6.6"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["developer"]
+order = 440
+group = "powershell-7"
+homepage = "https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows"
+notes = "PowerShell-7.6.6-win-x64.msi from github.com/PowerShell/PowerShell/releases/tag/v7.6.6 (2026-09-08). The Learn install page (learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows) names 7.6.6 'Current LTS' (7.5.11 latest stable, 7.4.20 previous LTS) and links exactly these MSIs (x64, arm64); it also says 7.7 will ship no MSI. SHA256 matches the GitHub asset and winget-pkgs Microsoft.PowerShell 7.6.6.0 (ProductCode {B1A9B37E-00B6-4BFD-A439-3120FE4F766E}); a win-x86 MSI exists on GitHub but Learn does not list it, so it is left out. MSI properties per the Learn page: USE_MU and ENABLE_MU (default 1: Microsoft Update keeps 7.x patched), ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL, ADD_FILE_CONTEXT_MENU_RUNPOWERSHELL, ENABLE_PSREMOTING, REGISTER_MANIFEST, ADD_PATH, DISABLE_TELEMETRY, INSTALLFOLDER; only ADD_PATH=1 is set, the rest keep their defaults. Installs to %ProgramFiles%\\PowerShell\\7 and newer 7.x replaces older 7.x (same page). Offered only on x64 Windows; ARM64 gets the native MSI. Detection: MSI upgrade code {31AB5147-9A97-4452-8443-D9709F0516E1} read from the MSI by refresh; on the dev host it maps to the installed product {B1A9B37E-...} 7.6.6.0 (HKLM Classes\\Installer\\UpgradeCodes, reg query), and HKLM\\SOFTWARE\\Microsoft\\PowerShellCore\\InstalledVersions\\31ab5147-... holds SemanticVersion 7.6.6. min_version 7.6.6 so an older 7.x shows as outdated."
+
+[package.source]
+url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.6/PowerShell-7.6.6-win-x64.msi"
+filename = "PowerShell-7.6.6-win-x64.msi"
+signer = ["Microsoft Corporation"]
+size = 117477376
+sha256 = "958838ff55091e1c8705d89efed0cc7e8245a3a6ef6c0ccfae20015227108ad8"
+
+[package.install]
+kind = "msi"
+properties = "ADD_PATH=1"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{31AB5147-9A97-4452-8443-D9709F0516E1}"
+min_version = "7.6.6"
+
+[[package]]
+id = "powershell-7-arm64"
+name = "PowerShell 7.6 LTS (ARM64)"
+description = { en = "Modern cross-platform PowerShell for ARM64 Windows, needed by scripts and tools that require pwsh.", tr = "ARM64 Windows için modern, çok platformlu PowerShell; pwsh isteyen betik ve araçlar için gerekir." }
+version = "7.6.6"
+arch = "arm64"
+os_arch = ["arm64"]
+profiles = ["developer"]
+order = 441
+group = "powershell-7"
+homepage = "https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows"
+notes = "PowerShell-7.6.6-win-arm64.msi from github.com/PowerShell/PowerShell/releases/tag/v7.6.6, linked on the Learn install page. SHA256 matches the GitHub asset and winget-pkgs Microsoft.PowerShell 7.6.6.0 (ProductCode {8FADDD2A-62B7-4A60-B133-79A595459ED5}, confirmed by refresh). Upgrade code {1D00683B-0F84-4DB8-A64F-2F98AD42FE06} and ProductName 'PowerShell 7-arm64' read from the MSI by refresh; not installed on the dev host. See powershell-7-x64 for LTS status and MSI properties."
+
+[package.source]
+url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.6/PowerShell-7.6.6-win-arm64.msi"
+filename = "PowerShell-7.6.6-win-arm64.msi"
+signer = ["Microsoft Corporation"]
+size = 110891008
+sha256 = "387d0af8e92ba97f73616c91fa8f29a284e8f82ee6c40fe12dade971bb05bac4"
+
+[package.install]
+kind = "msi"
+properties = "ADD_PATH=1"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{1D00683B-0F84-4DB8-A64F-2F98AD42FE06}"
+min_version = "7.6.6"

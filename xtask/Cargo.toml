@@ -1,0 +1,18 @@
+[package]
+name = "xtask"
+description = "Developer tasks for CAIOR: catalog checks, URL probes, hash refresh"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+caior-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "native-tls"] }
+sha2 = "0.10"
+toml_edit = "0.22"
+zip = { version = "2", default-features = false, features = ["deflate"] }

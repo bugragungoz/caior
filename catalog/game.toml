@@ -1,0 +1,350 @@
+# Game runtimes.
+# Researched 2026-10-10. Facts come from the vendors' own pages (Microsoft Download Center and
+# Learn, NVIDIA, openal.org, LunarG); winget-pkgs manifests were used as a cross-check.
+# Detection keys and files were checked on a Windows 11 x64 host (reg query, file versions, WMI).
+
+[category]
+id = "game"
+name = { en = "Gaming", tr = "Oyun" }
+description = { en = "Runtimes that PC games load: legacy DirectX parts, audio, physics and graphics libraries.", tr = "PC oyunlarının yüklediği çalışma zamanları: eski DirectX bileşenleri, ses, fizik ve grafik kitaplıkları." }
+order = 30
+icon = "gamepad"
+
+# ---------------------------------------------------------------- DirectX June 2010
+
+[[package]]
+id = "directx-jun2010"
+name = "DirectX End-User Runtimes (June 2010)"
+description = { en = "Adds the D3DX9/10/11, XAudio 2.7, XInput 1.3 and XACT files that many games from 2004-2015 need.", tr = "2004-2015 arası birçok oyunun ihtiyaç duyduğu D3DX9/10/11, XAudio 2.7, XInput 1.3 ve XACT dosyalarını ekler." }
+version = "9.29.1974.1"
+arch = "neutral"
+os_arch = ["x86", "x64"]
+profiles = ["recommended", "gaming"]
+order = 300
+homepage = "https://www.microsoft.com/download/details.aspx?id=8109"
+notes = "TODO"
+
+[package.source]
+url = "https://download.microsoft.com/download/8/4/a/84a35bf1-dafe-4ae8-82af-ad2ae20b6b14/directx_Jun2010_redist.exe"
+filename = "directx_Jun2010_redist.exe"
+signer = ["Microsoft Corporation"]
+size = 100275120
+sha256 = "053f76dcbb28802e23341b6a787e3b0791c0fa5c8d4d011b1044172dbf89c73b"
+
+[package.install]
+kind = "directx"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "all"
+
+[[package.detect.rules]]
+kind = "file-version"
+path = '%SystemRoot%\System32\d3dx9_43.dll'
+min_version = "9.29.952.3111"
+
+[[package.detect.rules]]
+kind = "file-version"
+path = '%SystemRoot%\System32\d3dx10_43.dll'
+min_version = "9.29.952.3111"
+
+[[package.detect.rules]]
+kind = "file-version"
+path = '%SystemRoot%\System32\d3dx11_43.dll'
+min_version = "9.29.952.3111"
+
+[[package.detect.rules]]
+kind = "file-version"
+path = '%SystemRoot%\System32\xinput1_3.dll'
+min_version = "9.18.944.0"
+
+[[package.detect.rules]]
+kind = "file-version"
+path = '%SystemRoot%\System32\XAudio2_7.dll'
+min_version = "9.29.1962.0"
+
+[[package.detect.rules]]
+kind = "any"
+
+[[package.detect.rules.rules]]
+kind = "all"
+
+[[package.detect.rules.rules.rules]]
+kind = "file-version"
+path = '%SystemRoot%\SysWOW64\d3dx9_43.dll'
+min_version = "9.29.952.3111"
+
+[[package.detect.rules.rules.rules]]
+kind = "file-version"
+path = '%SystemRoot%\SysWOW64\d3dx10_43.dll'
+min_version = "9.29.952.3111"
+
+[[package.detect.rules.rules.rules]]
+kind = "file-version"
+path = '%SystemRoot%\SysWOW64\d3dx11_43.dll'
+min_version = "9.29.952.3111"
+
+[[package.detect.rules.rules.rules]]
+kind = "file-version"
+path = '%SystemRoot%\SysWOW64\xinput1_3.dll'
+min_version = "9.18.944.0"
+
+[[package.detect.rules.rules.rules]]
+kind = "file-version"
+path = '%SystemRoot%\SysWOW64\XAudio2_7.dll'
+min_version = "9.29.1962.0"
+
+[[package.detect.rules.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+view = "64"
+value = "PROCESSOR_ARCHITECTURE"
+equals = "x86"
+
+# ---------------------------------------------------------------- DirectPlay
+
+[[package]]
+id = "directplay"
+name = "DirectPlay"
+description = { en = "Old multiplayer networking API that some games from before 2008 still need to start.", tr = "2008 öncesi bazı oyunların açılmak için hâlâ ihtiyaç duyduğu eski çok oyunculu ağ arayüzü." }
+version = "Windows optional feature"
+arch = "neutral"
+profiles = ["gaming"]
+order = 310
+notes = "TODO"
+
+[package.install]
+kind = "dism-feature"
+feature = "DirectPlay"
+all = true
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "dism-feature"
+feature = "DirectPlay"
+
+# ---------------------------------------------------------------- OpenAL
+
+[[package]]
+id = "openal"
+name = "OpenAL 1.1"
+description = { en = "Creative's 3D audio library; games that use OpenAL for sound need it.", tr = "Creative'in 3B ses kitaplığı; sesi OpenAL ile çalan oyunlar buna ihtiyaç duyar." }
+version = "2.1.0.0"
+arch = "neutral"
+os_arch = ["x86", "x64"]
+profiles = ["gaming"]
+order = 320
+homepage = "https://www.openal.org/downloads/"
+notes = "TODO"
+
+[package.source]
+url = "https://www.openal.org/downloads/oalinst.zip"
+filename = "oalinst.zip"
+signer = ["Creative Technology Ltd"]
+extract = { archive = "zip", entry = "oalinst.exe" }
+size = 590434
+sha256 = "d165bcb7628fd950d14847585468cc11943b2a1da92a59a839d397c68f9d4b06"
+
+[package.install]
+kind = "exe"
+args = "/s"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 300
+
+[package.detect]
+kind = "file-version"
+path = '%SystemRoot%\System32\OpenAL32.dll'
+
+# ---------------------------------------------------------------- NVIDIA PhysX
+
+[[package]]
+id = "physx-legacy"
+name = "NVIDIA PhysX Legacy System Software"
+description = { en = "Older PhysX runtimes (SDK 2.7.2 and earlier) that games released up to the end of 2007 need.", tr = "2007 sonuna kadar çıkmış oyunların ihtiyaç duyduğu eski PhysX çalışma zamanları (SDK 2.7.2 ve öncesi)." }
+version = "9.13.0604"
+arch = "neutral"
+profiles = ["gaming", "legacy"]
+order = 330
+legacy = true
+homepage = "https://www.nvidia.com/en-us/drivers/physx/physx-9-13-0604-legacy-driver/"
+notes = "TODO"
+
+[package.source]
+url = "https://us.download.nvidia.com/Windows/9.13.0604/PhysX-9.13.0604-SystemSoftware-Legacy.msi"
+filename = "PhysX-9.13.0604-SystemSoftware-Legacy.msi"
+signer = ["NVIDIA Corporation"]
+size = 20154368
+sha256 = "2b78df4a9004f5c4220d62c363709e5ac5e2e58df9f2284df0254cbfa4970d91"
+
+[package.install]
+kind = "msi"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+product_code = "{FAAC26AD-73BA-40CE-86AA-C9213F9E064A}"
+
+[[package]]
+id = "physx"
+name = "NVIDIA PhysX System Software"
+description = { en = "Physics runtime that games built with NVIDIA PhysX need, with or without an NVIDIA graphics card.", tr = "NVIDIA PhysX ile yapılmış oyunların, NVIDIA ekran kartı olsun olmasın ihtiyaç duyduğu fizik çalışma zamanı." }
+version = "9.26.0703"
+arch = "neutral"
+profiles = ["gaming"]
+order = 331
+homepage = "https://www.nvidia.com/en-us/drivers/physx/physx-9-26-0703-driver/"
+notes = "TODO"
+
+[package.source]
+url = "https://us.download.nvidia.com/Windows/9.26.0703/PhysX_9.26.0703_SystemSoftware.exe"
+filename = "PhysX_9.26.0703_SystemSoftware.exe"
+signer = ["NVIDIA Corporation"]
+size = 34979112
+sha256 = "84b606d047b350b050b55e10993039c9fb0d3f8a2d01d3519872e80c1da109f8"
+
+[package.install]
+kind = "exe"
+args = "/s"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{B2FE1952-0186-46C3-BAEC-A80AA35AC5B8}_Display.PhysX'
+view = "64"
+version_value = "DisplayVersion"
+min_version = "9.26.0703"
+
+# ---------------------------------------------------------------- XNA Framework
+
+[[package]]
+id = "xna-3-1"
+name = "XNA Framework 3.1 (x86)"
+description = { en = "Runtime for games made with XNA Game Studio 3.1, mostly indie games from 2009-2010.", tr = "XNA Game Studio 3.1 ile yapılmış oyunlar için çalışma zamanı; çoğu 2009-2010 dönemi bağımsız oyunlar." }
+version = "3.1"
+arch = "x86"
+profiles = ["legacy"]
+order = 340
+legacy = true
+homepage = "https://www.microsoft.com/download/details.aspx?id=15163"
+notes = "TODO"
+
+[package.source]
+url = "https://download.microsoft.com/download/5/9/1/5912526c-b950-4662-99b6-119a83e60e5c/xnafx31_redist.msi"
+filename = "xnafx31_redist.msi"
+signer = ["Microsoft Corporation"]
+size = 7672320
+sha256 = "409173b3a4f4ee6ff4e6910eece26f95af8073efae2c9fa4c0f8dad24f7774de"
+
+[package.install]
+kind = "msi"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+product_code = "{00000000-0000-0000-0000-000000000000}"
+
+[[package]]
+id = "xna-4-0"
+name = "XNA Framework 4.0 Refresh (x86)"
+description = { en = "Runtime for games made with XNA Game Studio 4.0, such as Terraria, Stardew Valley's first release and many indie games.", tr = "XNA Game Studio 4.0 ile yapılmış oyunlar için çalışma zamanı; Terraria ve birçok bağımsız oyun bunu kullanır." }
+version = "4.0.30901.0"
+arch = "x86"
+profiles = ["gaming"]
+order = 341
+homepage = "https://www.microsoft.com/download/details.aspx?id=27598"
+notes = "TODO"
+
+[package.source]
+url = "https://download.microsoft.com/download/5/3/a/53a804c8-ec78-43cd-a0f0-2fb4d45603d3/xnafx40_redist.msi"
+filename = "xnafx40_redist.msi"
+signer = ["Microsoft Corporation"]
+size = 7059456
+sha256 = "2b03c130c4bb5f106b9619bea8150201f7e982709cfe9a0cc8bde75ff0a83b27"
+
+[package.install]
+kind = "msi"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+product_code = "{D69C8EDE-BBC5-436B-8E0E-C5A6D311CF4F}"
+
+# ---------------------------------------------------------------- Vulkan
+
+[[package]]
+id = "vulkan-rt-x64"
+name = "Vulkan Runtime (x64)"
+description = { en = "Vulkan loader (vulkan-1.dll) for games that render with Vulkan.", tr = "Görüntüyü Vulkan ile çizen oyunlar için Vulkan yükleyicisi (vulkan-1.dll)." }
+version = "1.4.363.0"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["gaming"]
+order = 350
+group = "vulkan-rt"
+warning = { en = "Graphics drivers from AMD, Intel and NVIDIA already install the Vulkan runtime. Install this only if a game reports that vulkan-1.dll is missing.", tr = "AMD, Intel ve NVIDIA ekran kartı sürücüleri Vulkan çalışma zamanını zaten kurar. Bunu yalnızca bir oyun vulkan-1.dll eksik derse kurun." }
+homepage = "https://vulkan.lunarg.com/sdk/home"
+notes = "TODO"
+
+[package.source]
+url = "https://sdk.lunarg.com/sdk/download/1.4.363.0/windows/VulkanRT-X64-1.4.363.0-Installer.exe"
+filename = "VulkanRT-X64-1.4.363.0-Installer.exe"
+signer = ["LunarG, Inc."]
+size = 25699768
+sha256 = "3f03bda2522d1d10d05461ce8a47364f9af6f5dc8642b7c45e43943dba164303"
+
+[package.install]
+kind = "exe"
+args = "/S"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 600
+
+[package.detect]
+kind = "file-version"
+path = '%SystemRoot%\System32\vulkan-1.dll'
+
+[[package]]
+id = "vulkan-rt-arm64"
+name = "Vulkan Runtime (ARM64)"
+description = { en = "Vulkan loader (vulkan-1.dll) for games that render with Vulkan on ARM64 Windows.", tr = "ARM64 Windows'ta görüntüyü Vulkan ile çizen oyunlar için Vulkan yükleyicisi (vulkan-1.dll)." }
+version = "1.4.363.0"
+arch = "arm64"
+profiles = ["gaming"]
+order = 351
+group = "vulkan-rt"
+warning = { en = "Graphics drivers usually install the Vulkan runtime already. Install this only if a game reports that vulkan-1.dll is missing.", tr = "Ekran kartı sürücüleri Vulkan çalışma zamanını genellikle zaten kurar. Bunu yalnızca bir oyun vulkan-1.dll eksik derse kurun." }
+homepage = "https://vulkan.lunarg.com/sdk/home"
+notes = "TODO"
+
+[package.source]
+url = "https://sdk.lunarg.com/sdk/download/1.4.363.0/warm/VulkanRT-ARM64-1.4.363.0-Installer.exe"
+filename = "VulkanRT-ARM64-1.4.363.0-Installer.exe"
+signer = ["LunarG, Inc."]
+size = 22596024
+sha256 = "302b652dd5c952077d8b20726f31cd4cabb6541a5a3f0bf7f8aa80099df8ba5a"
+
+[package.install]
+kind = "exe"
+args = "/S"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 600
+
+[package.detect]
+kind = "file-version"
+path = '%SystemRoot%\System32\vulkan-1.dll'

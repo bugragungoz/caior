@@ -1,0 +1,28 @@
+# Build output
+/target/
+**/target/
+**/node_modules/
+legacy/v2-tauri/dist/
+
+# Local-only data: downloaded installers, built bundles, old v1 payload
+/_local/
+/cache/
+/out/
+
+# Never commit installer binaries or bundles
+*.exe
+*.msi
+*.msu
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.cab
+*.zip
+*.7z
+
+# Logs and editor noise
+*.log
+*.pdb
+.DS_Store
+Thumbs.db

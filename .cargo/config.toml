@@ -1,0 +1,14 @@
+[alias]
+xtask = "run --quiet -p xtask --"
+
+# Link the C runtime statically. CAIOR runs on fresh Windows installs that do
+# not have the Visual C++ runtime yet (installing it is the app's job), so the
+# exe must not need VCRUNTIME140.dll. Found in the first Windows Sandbox run.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -1,0 +1,376 @@
+# Java runtimes and development kits.
+#
+# Temurin MSI facts (from the installer's WiX source, github.com/adoptium/installer wix/Main.wxs.template
+# and wix/Includes/OpenJDK.Variables.wxi.template, plus adoptium.net/installation/windows):
+# - Features: FeatureMain (files, required), FeatureEnvironment (prepends <dir>\bin to PATH, default),
+#   FeatureJarFileRunWith (.jar opens with javaw, default), FeatureJavaHome (sets JAVA_HOME, not default),
+#   FeatureOracleJavaSoft (writes Oracle's HKLM\SOFTWARE\JavaSoft keys, not default). INSTALLLEVEL=1 equals
+#   the three defaults.
+# - We never add FeatureOracleJavaSoft: it overwrites keys that belong to Oracle Java (the SetOracleJavaSoftKeys
+#   component, e.g. "Java Runtime Environment\1.8" JavaHome, has no condition), and the installer README
+#   (github.com/adoptium/installer wix/README.md) says it breaks starting Oracle Java from PATH once Temurin is
+#   uninstalled, until Oracle Java is reinstalled. winget-pkgs installs with ADDLOCAL=ALL, which includes it;
+#   we deliberately do not. Trade-off: an app that finds Java only through HKLM\SOFTWARE\JavaSoft (some exe
+#   wrappers) will not see Temurin; it still finds it on PATH.
+# - No INSTALLDIR: adoptium.net/installation/windows says "You must use INSTALLDIR with FeatureMain", but the
+#   installer README describes INSTALLDIR only as the way to choose another folder, the CustomSetPerMachineFolder
+#   action sets the default under Program Files, and winget-pkgs installs without it (Scope: machine).
+# - JREs get the three default features only. JDKs also get FeatureJavaHome: JAVA_HOME should point to a JDK,
+#   and a JRE installed later would otherwise take JAVA_HOME away from the developer's JDK.
+# - Package has no Scope attribute, so WiX makes it per-machine (ALLUSERS=1); silent installs go to
+#   %ProgramFiles%\Eclipse Adoptium\<jre|jdk>-<msi version>-hotspot.
+# - UpgradeCode = md5(<category>-<major>-<platform>-<package type>-<secret seed>) (Build.OpenJDK_generic.cmd),
+#   so it is fixed per JRE/JDK, feature line and arch, and differs for x86 / x64 / arm64. Checked in
+#   winget-pkgs across many releases of each line. We detect with it (msi-product + min_version).
+# - Each install also writes HKMU\SOFTWARE\Eclipse Adoptium\<JRE|JDK>\<msi version>\hotspot\MSI (Path, Main=1).
+#   Not used for detection: x64 and arm64 builds write the same 64-bit view, and per-user installs land in HKCU.
+#   No Temurin is installed on the build host (reg query of HKLM/HKCU "SOFTWARE\Eclipse Adoptium", both views,
+#   2026-10-10), so this key could not be checked there.
+# - UpgradeCode stability checked in winget-pkgs: 8 JRE x86/x64 identical in 8.0.412.8 to 8.0.504.1, 21 JRE in
+#   21.0.1.12 to 21.0.12.101, 21 JDK in 21.0.3.9 to 21.0.12.101, 25 JRE/JDK in 25.0.0.36 to 25.0.4.101.
+# - MSI ProductVersion is major.minor.security.(patch*100 + build): 21.0.12+8 -> 21.0.12.8,
+#   respin 21.0.12.1+1 -> 21.0.12.101, so versions still sort correctly.
+# - A JRE and a JDK of the same line do not conflict: different UpgradeCode, ProductCode and folder. Both put
+#   bin on PATH; the one installed last comes first. The JDK contains a full runtime, so the JRE is redundant
+#   next to it.
+# - MajorUpgrade compares only the first three version fields (documented by Adoptium): a respin with the same
+#   three fields installs side by side instead of replacing the older build. So a host with 21.0.12.8 shows
+#   as outdated against min_version 21.0.12.101, and the update leaves the old 21.0.12.8 folder in place
+#   (Adoptium: uninstall the old MSI first; the catalog cannot express that). A normal quarterly update
+#   (21.0.12 -> 21.0.13) replaces the old build.
+# - success_codes 1638 is Windows Installer's ERROR_PRODUCT_VERSION ("another version of this product is
+#   already installed", learn.microsoft.com MsiExec error codes); Adoptium documents no exit codes of its own.
+#   Installing over a newer build of the same line fails through MajorUpgrade's DowngradeErrorMessage (1603);
+#   detection skips that case first.
+# - Windows 32-bit: Adoptium stopped shipping it in 2026 (adoptium.net/news/2025/12/solaris-win32-removal,
+#   github.com/adoptium/temurin-build/issues/4319, closed 2026-06-24). The last x86 build is 8u472-b08.
+# - Windows aarch64: shipped for 21 since 21.0.5, not for 25 (adoptium.net/news/2026/08 release post;
+#   github.com/adoptium/temurin/issues/298 lists 25.0.4.1 Windows aarch64 as not in plan).
+# - Signers (refresh, 2026-10-10; both DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1): the
+#   current builds (8u504, 21.0.12.1, 25.0.4.1) are signed "Eclipse Foundation" (Bruxelles, BE); 8u472 x86 (Oct 2025) carries the older
+#   "Eclipse.org Foundation, Inc." (Ottawa, CA) certificate, which expired 2026-07-17.
+# - Hashes, ProductCodes and UpgradeCodes read by refresh (re-run with --force on 2026-10-10) match winget-pkgs
+#   for every file served today; the Temurin hashes also match api.adoptium.net/v3/assets/latest checksums.
+
+[category]
+id = "java"
+name = { en = "Java", tr = "Java" }
+description = { en = "Java runtimes and development kits: Eclipse Temurin, the free OpenJDK build from Adoptium, and Oracle Java 8.", tr = "Java çalışma ortamları ve geliştirme kitleri: Adoptium'un ücretsiz OpenJDK derlemesi Eclipse Temurin ve Oracle Java 8." }
+order = 50
+icon = "coffee"
+
+# ---------------------------------------------------------------------------------------------------------
+# Java 8
+# ---------------------------------------------------------------------------------------------------------
+
+[[package]]
+id = "temurin-jre-8-x86"
+name = "Eclipse Temurin JRE 8 (x86)"
+description = { en = "32-bit Java 8 runtime for 32-bit Windows and for old Java apps that only work with a 32-bit JVM.", tr = "32 bit Windows ve yalnızca 32 bit JVM ile çalışan eski Java uygulamaları için 32 bit Java 8 çalışma ortamı." }
+version = "8u472-b08"
+arch = "x86"
+profiles = ["legacy"]
+order = 500
+group = "temurin-jre-8"
+legacy = true
+warning = { en = "Adoptium stopped building 32-bit Windows Java in 2026. 8u472 is the last build and gets no more security fixes. Use the x64 package unless an app needs a 32-bit JVM.", tr = "Adoptium 32 bit Windows Java derlemelerini 2026'da durdurdu. 8u472 son derleme ve artık güvenlik düzeltmesi almıyor. Bir uygulama 32 bit JVM gerektirmiyorsa x64 paketini kullanın." }
+homepage = "https://adoptium.net/temurin/"
+notes = """Pinned: Windows x86 builds ended (adoptium.net/news/2025/12/solaris-win32-removal; temurin-build issue 4319 closed 2026-06-24 "we have not been shipping win32 builds this year"). api.adoptium.net/v3/assets/feature_releases/8/ga?os=windows&architecture=x32 lists 8u472-b08 (2025-10) as newest; installer/latest/8/ga/windows/x86/jre still redirects to this file. Profile moved from gaming to legacy because the build is frozen and has missed every security update since Oct 2025; on x64 Windows the x64 package covers Minecraft tools and old apps. winget-pkgs 8.0.504.1 has no x86 installer either. Signed by the older "Eclipse.org Foundation, Inc." certificate (see header); pinned by sha256. winget-pkgs EclipseAdoptium.Temurin.8.JRE 8.0.472.8 (x86): ProductCode {F77FFD35-A9EA-4E54-B6F0-AFAEE2AA873D}, UpgradeCode {45B9357D-10B8-96DB-0C1A-5686F1589C82} (same in 8.0.462.8). Features: see file header."""
+
+[package.source]
+url = "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u472-b08/OpenJDK8U-jre_x86-32_windows_hotspot_8u472b08.msi"
+filename = "OpenJDK8U-jre_x86-32_windows_hotspot_8u472b08.msi"
+size = 30404608
+sha256 = "a469a375c2a2358dd86bdfbb8237756c3897f6c4259af7418b0bd626a259e360"
+signer = ["Eclipse.org Foundation, Inc."]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith"
+success_codes = [0, 1638]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{45B9357D-10B8-96DB-0C1A-5686F1589C82}"
+min_version = "8.0.472.8"
+
+[[package]]
+id = "temurin-jre-8-x64"
+name = "Eclipse Temurin JRE 8 (x64)"
+description = { en = "Java 8 runtime for Minecraft mod tools and servers, older game launchers and older Java apps; a free replacement for Oracle Java 8.", tr = "Minecraft mod araçları ve sunucuları, eski oyun başlatıcıları ve eski Java uygulamaları için Java 8 çalışma ortamı; Oracle Java 8'in ücretsiz alternatifi." }
+version = "8 (latest update)"
+arch = "x64"
+profiles = ["gaming"]
+order = 501
+group = "temurin-jre-8"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse redirects (307) to the newest GitHub release MSI (OpenJDK8U-jre_x64_windows_hotspot_8u504b01.msi on 2026-10-10, MSI ProductVersion 8.0.504.1, ProductName "Eclipse Temurin JRE with Hotspot 8u504-b01 (x64)"). Install options: adoptium.net/installation/windows. winget-pkgs EclipseAdoptium.Temurin.8.JRE: x64 UpgradeCode {740C8620-C719-E140-1A76-A4513367112A} in 8.0.462.8, 8.0.472.8 and 8.0.504.1, same as the refresh MSI read. min_version = MSI ProductVersion served today; bump it when the URL moves on. No arm64 build exists for 8; on ARM64 Windows this x64 build runs emulated."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse"
+filename = "temurin-jre-8-x64.msi"
+size = 32010240
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith"
+success_codes = [0, 1638]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{740C8620-C719-E140-1A76-A4513367112A}"
+min_version = "8.0.504.1"
+
+[[package]]
+id = "oracle-jre-8-x86"
+name = "Oracle Java 8 JRE (x86)"
+description = { en = "Oracle's own 32-bit Java 8 runtime, for apps that insist on Oracle Java; most apps run fine on Temurin JRE 8.", tr = "Özellikle Oracle Java isteyen uygulamalar için Oracle'ın kendi 32 bit Java 8 çalışma ortamı; çoğu uygulama Temurin JRE 8 ile de çalışır." }
+version = "8u503-b01"
+arch = "x86"
+order = 505
+group = "oracle-jre-8"
+warning = { en = "Oracle Java 8 comes under the Oracle Technology Network License. Personal use and development are free; business use needs a paid Oracle Java SE Subscription. Installing it means you accept that license. It is downloaded from Oracle during installation and cannot go into offline bundles.", tr = "Oracle Java 8, Oracle Technology Network lisansıyla gelir. Kişisel kullanım ve geliştirme ücretsizdir; iş amaçlı kullanım için ücretli Oracle Java SE aboneliği gerekir. Kurarsanız bu lisansı kabul etmiş olursunuz. Kurulum sırasında Oracle'dan indirilir ve offline pakete konamaz." }
+homepage = "https://www.java.com/"
+notes = """Link from java.com/en/download/manual.jsp ("Windows Offline", Version 8 Update 503, released 2026-08-18), no login. Oracle has no evergreen link: the BundleId changes with every update, so this entry is pinned and must be bumped each quarter (old BundleIds keep working: the 8u461 x64 one from winget, BundleId=252322_68ce..., still redirected to jre-8u461-windows-x64.exe on 2026-10-10). sha256 matches winget-pkgs Oracle.JavaRuntimeEnvironment 8.0.5030.1; the exe FileVersion is 8.0.5030.1, signer "Oracle America, Inc." (DigiCert). online_only because of the OTN license (java.com/en/download/release_notice.jsp, oracle.com/downloads/licenses/javase-license1.html). Switches: docs.oracle.com/javase/8/docs/technotes/guides/install/config.html; REBOOT defaults to 1 (silent mode reboots by itself), so REBOOT=0; WEB_ANALYTICS=0 stops install statistics. winget-pkgs adds SPONSORS=0 AUTO_UPDATE=0, but neither is in Oracle's config.html, so we leave them out; Oracle's own updater stays on so the pinned build gets patched. No Oracle-documented "already installed" exit code, so success_codes stays [0]. Detection: winget-pkgs Oracle.JavaRuntimeEnvironment 8.0.5030.1 x86 UpgradeCode {57BDA5C6-443C-4D65-B233-282393218000}, ProductCode {77124AE4-039E-4CA4-87B4-2F32180503F0}. Not the HKLM\\SOFTWARE\\JavaSoft keys: Temurin's FeatureOracleJavaSoft writes them too."""
+
+[package.source]
+url = "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=253607_2fde65a2208f40a5b5f4c844b0dff092"
+filename = "jre-8u503-windows-i586.exe"
+size = 68631712
+online_only = true
+sha256 = "99ebc629a225f83c1dd5e47c1ca4543ed75949314e8647c3b63c3eb7bdb6313a"
+signer = ["Oracle America, Inc."]
+
+[package.install]
+kind = "exe"
+args = "/s REBOOT=0 WEB_ANALYTICS=0"
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{57BDA5C6-443C-4D65-B233-282393218000}"
+min_version = "8.0.5030.1"
+
+[[package]]
+id = "oracle-jre-8-x64"
+name = "Oracle Java 8 JRE (x64)"
+description = { en = "Oracle's own 64-bit Java 8 runtime, for apps that insist on Oracle Java; most apps run fine on Temurin JRE 8.", tr = "Özellikle Oracle Java isteyen uygulamalar için Oracle'ın kendi 64 bit Java 8 çalışma ortamı; çoğu uygulama Temurin JRE 8 ile de çalışır." }
+version = "8u503-b01"
+arch = "x64"
+order = 506
+group = "oracle-jre-8"
+warning = { en = "Oracle Java 8 comes under the Oracle Technology Network License. Personal use and development are free; business use needs a paid Oracle Java SE Subscription. Installing it means you accept that license. It is downloaded from Oracle during installation and cannot go into offline bundles.", tr = "Oracle Java 8, Oracle Technology Network lisansıyla gelir. Kişisel kullanım ve geliştirme ücretsizdir; iş amaçlı kullanım için ücretli Oracle Java SE aboneliği gerekir. Kurarsanız bu lisansı kabul etmiş olursunuz. Kurulum sırasında Oracle'dan indirilir ve offline pakete konamaz." }
+homepage = "https://www.java.com/"
+notes = """Link from java.com/en/download/manual.jsp ("Windows Offline (64-bit)"), no login; pinned per release like the x86 entry. Switches and license: see oracle-jre-8-x86. Detection: winget-pkgs Oracle.JavaRuntimeEnvironment 8.0.5030.1 x64 UpgradeCode {57BDA5C6-443C-4D65-B233-282396418000}, ProductCode {77124AE4-039E-4CA4-87B4-2F64180503F0}. Confirmed on the build host: Oracle 8u461 x64 (ProductCode {71124AE4-039E-4CA4-87B4-2F64180461F0}, DisplayVersion 8.0.4610.11) is registered under that same UpgradeCode (HKLM\\SOFTWARE\\Classes\\Installer\\UpgradeCodes\\6C5ADB75C34456D42B33823269140800), so the code is stable across updates."""
+
+[package.source]
+url = "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=253608_2fde65a2208f40a5b5f4c844b0dff092"
+filename = "jre-8u503-windows-x64.exe"
+size = 72371872
+online_only = true
+sha256 = "962c586f1407a42954cde8dfa68d4ad361ced1b50d547bab1c23ffffe5e2c2ed"
+signer = ["Oracle America, Inc."]
+
+[package.install]
+kind = "exe"
+args = "/s REBOOT=0 WEB_ANALYTICS=0"
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{57BDA5C6-443C-4D65-B233-282396418000}"
+min_version = "8.0.5030.1"
+
+# ---------------------------------------------------------------------------------------------------------
+# Java 21 LTS
+# ---------------------------------------------------------------------------------------------------------
+
+[[package]]
+id = "temurin-jre-21-x64"
+name = "Eclipse Temurin JRE 21 (x64)"
+description = { en = "Java 21 LTS runtime for desktop apps, tools and game servers that need Java 21.", tr = "Java 21 gerektiren masaüstü uygulamaları, araçlar ve oyun sunucuları için Java 21 LTS çalışma ortamı." }
+version = "21 LTS (latest update)"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["developer"]
+order = 510
+group = "temurin-jre-21"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse (OpenJDK21U-jre_x64_windows_hotspot_21.0.12.1_1.msi on 2026-10-10, MSI ProductVersion 21.0.12.101). winget-pkgs EclipseAdoptium.Temurin.21.JRE: x64 UpgradeCode {E1ED1384-86C6-6900-91B2-CBA0DB8D3E2E} in 21.0.5.11, 21.0.12.8 and 21.0.12.101. os_arch = x64: ARM64 Windows gets the native arm64 build instead of a second, emulated copy."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse"
+filename = "temurin-jre-21-x64.msi"
+size = 34963456
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith"
+success_codes = [0, 1638]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{E1ED1384-86C6-6900-91B2-CBA0DB8D3E2E}"
+min_version = "21.0.12.101"
+
+[[package]]
+id = "temurin-jre-21-arm64"
+name = "Eclipse Temurin JRE 21 (ARM64)"
+description = { en = "Native ARM64 Java 21 LTS runtime for desktop apps, tools and game servers that need Java 21.", tr = "Java 21 gerektiren masaüstü uygulamaları, araçlar ve oyun sunucuları için yerel ARM64 Java 21 LTS çalışma ortamı." }
+version = "21 LTS (latest update)"
+arch = "arm64"
+profiles = ["developer"]
+order = 511
+group = "temurin-jre-21"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/21/ga/windows/aarch64/jre/hotspot/normal/eclipse. Adoptium ships Windows aarch64 MSIs for 21 since 21.0.5+11 (api.adoptium.net/v3/assets/feature_releases/21/ga?os=windows&architecture=aarch64). winget-pkgs EclipseAdoptium.Temurin.21.JRE 21.0.5.11 arm64 UpgradeCode {E77B30FF-9428-5EEC-2A3C-CC6A1C309B26}; newer winget manifests list x64 only, and the refresh MSI read of 21.0.12.1+1 (arm64, ProductVersion 21.0.12.101) shows the same code."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/21/ga/windows/aarch64/jre/hotspot/normal/eclipse"
+filename = "temurin-jre-21-arm64.msi"
+size = 27746304
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith"
+success_codes = [0, 1638]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{E77B30FF-9428-5EEC-2A3C-CC6A1C309B26}"
+min_version = "21.0.12.101"
+
+[[package]]
+id = "temurin-jdk-21-x64"
+name = "Eclipse Temurin JDK 21 (x64)"
+description = { en = "Java 21 LTS development kit with the compiler and tools for building Java apps; it also runs Java 21 apps.", tr = "Java uygulamaları geliştirmek için derleyici ve araçlarla gelen Java 21 LTS geliştirme kiti; Java 21 uygulamalarını da çalıştırır." }
+version = "21 LTS (latest update)"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["developer"]
+order = 515
+group = "temurin-jdk-21"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse (OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.msi on 2026-10-10, MSI ProductVersion 21.0.12.101). winget-pkgs EclipseAdoptium.Temurin.21.JDK: x64 UpgradeCode {C7371D5C-29EB-0885-C0E4-F8E3B955271F} in 21.0.5.11 and 21.0.12.101 (DisplayName "Eclipse Temurin JDK with Hotspot 21.0.12.1+1 (x64)"). Sets JAVA_HOME (FeatureJavaHome); installed after the JREs so its bin comes first on PATH."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse"
+filename = "temurin-jdk-21-x64.msi"
+size = 179351552
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome"
+success_codes = [0, 1638]
+timeout_sec = 1200
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{C7371D5C-29EB-0885-C0E4-F8E3B955271F}"
+min_version = "21.0.12.101"
+
+[[package]]
+id = "temurin-jdk-21-arm64"
+name = "Eclipse Temurin JDK 21 (ARM64)"
+description = { en = "Native ARM64 Java 21 LTS development kit with the compiler and tools for building Java apps.", tr = "Java uygulamaları geliştirmek için derleyici ve araçlarla gelen yerel ARM64 Java 21 LTS geliştirme kiti." }
+version = "21 LTS (latest update)"
+arch = "arm64"
+profiles = ["developer"]
+order = 516
+group = "temurin-jdk-21"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/21/ga/windows/aarch64/jdk/hotspot/normal/eclipse. winget-pkgs EclipseAdoptium.Temurin.21.JDK 21.0.5.11 arm64 UpgradeCode {BAE2E802-3BB0-95F1-E02D-C02D4E9A52C6}, the same in the refresh MSI read of 21.0.12.1+1 (arm64, ProductVersion 21.0.12.101). Added beyond the brief's x64-only JDK list so ARM64 developers get a native JDK."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/21/ga/windows/aarch64/jdk/hotspot/normal/eclipse"
+filename = "temurin-jdk-21-arm64.msi"
+size = 168910848
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome"
+success_codes = [0, 1638]
+timeout_sec = 1200
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{BAE2E802-3BB0-95F1-E02D-C02D4E9A52C6}"
+min_version = "21.0.12.101"
+
+# ---------------------------------------------------------------------------------------------------------
+# Java 25 LTS (no Windows aarch64 build yet)
+# ---------------------------------------------------------------------------------------------------------
+
+[[package]]
+id = "temurin-jre-25-x64"
+name = "Eclipse Temurin JRE 25 (x64)"
+description = { en = "Java 25 LTS runtime for desktop apps, tools and game servers that need Java 25.", tr = "Java 25 gerektiren masaüstü uygulamaları, araçlar ve oyun sunucuları için Java 25 LTS çalışma ortamı." }
+version = "25 LTS (latest update)"
+arch = "x64"
+profiles = ["developer"]
+order = 520
+group = "temurin-jre-25"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/25/ga/windows/x64/jre/hotspot/normal/eclipse (OpenJDK25U-jre_x64_windows_hotspot_25.0.4.1_1.msi on 2026-10-10, MSI ProductVersion 25.0.4.101). winget-pkgs EclipseAdoptium.Temurin.25.JRE: UpgradeCode {3043F600-D7DE-9A4F-2548-73FEBB3C19B8} in 25.0.0.36 and 25.0.4.101. No Windows aarch64 build for 25 (installer/latest/25/ga/windows/aarch64 answers 404 and the assets API lists none; the Aug 2026 release post says work is ongoing; github.com/adoptium/temurin/issues/298 expects upstream fixes in Oct 2026), so os_arch stays default and ARM64 Windows runs this x64 build emulated. Add an arm64 entry (and os_arch = ["x64"] here) once Adoptium ships one."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/25/ga/windows/x64/jre/hotspot/normal/eclipse"
+filename = "temurin-jre-25-x64.msi"
+size = 42696704
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith"
+success_codes = [0, 1638]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{3043F600-D7DE-9A4F-2548-73FEBB3C19B8}"
+min_version = "25.0.4.101"
+
+[[package]]
+id = "temurin-jdk-25-x64"
+name = "Eclipse Temurin JDK 25 (x64)"
+description = { en = "Java 25 LTS development kit with the compiler and tools for building Java apps; it also runs Java 25 apps.", tr = "Java uygulamaları geliştirmek için derleyici ve araçlarla gelen Java 25 LTS geliştirme kiti; Java 25 uygulamalarını da çalıştırır." }
+version = "25 LTS (latest update)"
+arch = "x64"
+profiles = ["developer"]
+order = 525
+group = "temurin-jdk-25"
+homepage = "https://adoptium.net/temurin/"
+notes = """Evergreen: api.adoptium.net/v3/installer/latest/25/ga/windows/x64/jdk/hotspot/normal/eclipse (OpenJDK25U-jdk_x64_windows_hotspot_25.0.4.1_1.msi on 2026-10-10, MSI ProductVersion 25.0.4.101). winget-pkgs EclipseAdoptium.Temurin.25.JDK: UpgradeCode {E00E8E72-B6F4-1340-5C2A-3DC829AE1458} in 25.0.0.36, 25.0.3.9 and 25.0.4.101. Installed last, so with JDK 21 also selected JAVA_HOME and the first java on PATH point to 25. No Windows aarch64 build (see temurin-jre-25-x64)."""
+
+[package.source]
+url = "https://api.adoptium.net/v3/installer/latest/25/ga/windows/x64/jdk/hotspot/normal/eclipse"
+filename = "temurin-jdk-25-x64.msi"
+size = 115998720
+evergreen = true
+signer = ["Eclipse Foundation"]
+
+[package.install]
+kind = "msi"
+properties = "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome"
+success_codes = [0, 1638]
+timeout_sec = 1200
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{E00E8E72-B6F4-1340-5C2A-3DC829AE1458}"
+min_version = "25.0.4.101"

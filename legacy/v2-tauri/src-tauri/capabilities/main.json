@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schemas.tauri.app/config/capability-2.json",
+  "identifier": "main",
+  "description": "Main window capabilities for croxz runtimes",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-title",
+    "shell:allow-spawn",
+    "shell:allow-execute"
+  ]
+}

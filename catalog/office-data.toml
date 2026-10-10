@@ -1,0 +1,319 @@
+# Office and data access runtimes.
+# Sources: Microsoft Learn (VSTO runtime pages, ODBC and OLE DB driver download, install and release
+# notes pages, the Access C2R/ACE troubleshooting article), Microsoft Download Center pages, and the
+# winget-pkgs manifests (Microsoft.VSTOR, Microsoft.msodbcsql.18, Microsoft.AccessDatabaseEngine.2016)
+# as a cross-check. The ODBC/OLE DB fwlinks are per release (old link ids keep serving the old build;
+# checked 2026-10-10: the OLE DB 19.4.2 ids 2364026/2364027 still point at the 19.4.2 files), so those
+# entries are pinned with a sha256 and must be bumped when Microsoft ships a new version.
+# The x86 ODBC and OLE DB MSIs carry the launch condition "NOT VersionNT64" (read from the MSI tables),
+# so they refuse to install on any 64-bit Windows; the 64-bit MSIs install the 32-bit driver as well.
+
+[category]
+id = "office-data"
+name = { en = "Office and data", tr = "Office ve veri" }
+description = { en = "Runtime for Office add-ins and drivers that let programs read Access and Excel files or connect to SQL Server.", tr = "Office eklentileri için çalışma zamanı ve programların Access ile Excel dosyalarını okumasını ya da SQL Server'a bağlanmasını sağlayan sürücüler." }
+order = 60
+icon = "database"
+
+# ---------------------------------------------------------------- VSTO runtime
+
+[[package]]
+id = "vstor-2010"
+name = "Visual Studio 2010 Tools for Office Runtime (x86 and x64)"
+description = { en = "Needed by Office add-ins and document solutions built with Visual Studio (VSTO), such as many Excel and Outlook add-ins.", tr = "Visual Studio ile geliştirilmiş Office eklentileri ve belge çözümleri (VSTO) için gerekir; birçok Excel ve Outlook eklentisi bunu kullanır." }
+version = "10.0.60917"
+arch = "neutral"
+profiles = ["recommended"]
+order = 600
+homepage = "https://learn.microsoft.com/visualstudio/vsto/how-to-install-the-visual-studio-tools-for-office-runtime-redistributable"
+notes = "Learn 'Install the VSTO runtime redistributable' links fwlink 140384 -> Download Center id=105890 (aka.ms/VSTORuntimeDownload goes there too): vstor_redist.exe, version 10.0.60917 (page: 60917.00, published 7/15/2024; PE FileVersion 10.0.60917.00 from refresh), one file for x86 and x64. ARM64 support is not stated on the page. No evergreen file link exists, so the direct download.microsoft.com URL is pinned; sha256 matches winget Microsoft.VSTOR 10.0.60917. Args /q /norestart from winget (Microsoft documents no switches); 3010/1641 per winget. Detection: Learn 'Deploy a VSTO solution with Windows Installer' checks HKLM\\SOFTWARE\\Microsoft\\VSTO Runtime Setup\\v4R value Version for the redistributable (v4 is the copy Office installs; its sample condition is VSTORUNTIMEREDIST>=10.0.30319 OR OFFICERUNTIME>=10.0.21022). Only v4R is used here because this entry installs and tracks the redistributable. Both views are checked because an MSI search reads the 32-bit view on x64. Dev host (Office 2024 C2R) has only v4 = 10.0.60910 and v4M in the 32-bit view, no v4R, so this shows as missing there; installing the redist next to Office's copy is the documented add-in prerequisite path."
+
+[package.source]
+url = "https://download.microsoft.com/download/5/d/2/5d24f8f8-efbb-4b63-aa33-3785e3104713/vstor_redist.exe"
+filename = "vstor_redist.exe"
+signer = ["Microsoft Corporation"]
+size = 41828424
+sha256 = "cfe1a40bbe4a50022db2164abdb0154984e2cecb761a23cdc81cb5754f6e0a18"
+
+[package.install]
+kind = "exe"
+args = "/q /norestart"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VSTO Runtime Setup\v4R'
+view = "64"
+value = "Version"
+version_value = "Version"
+min_version = "10.0.60917"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\VSTO Runtime Setup\v4R'
+view = "32"
+value = "Version"
+version_value = "Version"
+min_version = "10.0.60917"
+
+# ---------------------------------------------------------------- Access Database Engine 2016
+
+[[package]]
+id = "ace-2016-x86"
+name = "Access Database Engine 2016 Redistributable (x86)"
+description = { en = "Needed by 32-bit programs that read or write Access databases (.mdb, .accdb) or Excel and text files through the ACE OLE DB and ODBC drivers.", tr = "Access veritabanlarını (.mdb, .accdb), Excel ve metin dosyalarını ACE OLE DB ve ODBC sürücüleriyle okuyup yazan 32 bit programlar için gerekir." }
+version = "16.0.5044.1000"
+arch = "x86"
+profiles = []
+order = 610
+conflicts = ["ace-2016-x64"]
+group = "ace-2016"
+legacy = true
+warning = { en = "Pick the bitness of your installed Office: 32-bit Office needs x86, 64-bit Office needs x64. Only one of the two can be installed. Remove older Access Database Engine versions first. Microsoft 365 and Office 2021 or later already include this engine, and setup will not install next to them. Microsoft support ended on October 14, 2025.", tr = "Kurulu Office ile aynı bit sürümünü seçin: 32 bit Office için x86, 64 bit Office için x64. İkisinden yalnızca biri kurulabilir. Önce eski Access Database Engine sürümlerini kaldırın. Microsoft 365 ile Office 2021 ve sonrası bu motoru zaten içerir; kurulum bunların yanına yapılmaz. Microsoft desteği 14 Ekim 2025'te sona erdi." }
+homepage = "https://www.microsoft.com/download/details.aspx?id=54920"
+notes = "Download Center id=54920 (published 11/18/2025, re-checked 2026-10-10; it says to remove previous Access Database Engine versions before installing): accessdatabaseengine.exe, PE version 16.0.5044.1000; the page says support ended on October 14, 2025 and names the Microsoft 365 Access Runtime as the replacement (Click-to-Run, not packaged here). Pinned URL; sha256 matches both winget manifests (Microsoft.AccessDatabaseEngine.2016 and Microsoft.AccessDatabaseEngine2016). Args /quiet /norestart from winget (the page documents no switches). Not in a profile: x64 is the developer default and the two conflict. Detection: winget gives ProductCode {90160000-00D1-0409-0000-0000000FF1CE} (fits Office's product code scheme, 00D1 = ACE, 0 = x86) and UpgradeCode {00160000-00D1-0000-0000-0000000FF1CE}; the inner aceredist.msi cannot be read without extracting, so the upgrade code is not confirmed from the file. Second rule: the ACE 16.0 OLE DB provider CLSID {3BE786A2-...} in the 32-bit view, which the redist and Office builds that expose ACE (MSI Office 2016, M365/2021+ C2R per Learn 'cannot-use-odbc-or-oledb') register; with such Office the redist is not needed and setup refuses to run (Learn, archived: learn.microsoft.com/previous-versions/troubleshoot/microsoft-365/microsoft-365-apps/access/cannot-use-odbc-or-oledb, 'Office side-by-side detection will also prevent the installation'). Dev host (Office 2024 C2R x64) has the CLSID only in the 64-bit view, InprocServer32 under Office\\root\\VFS; no ACE MSI is registered there (RelatedProducts empty for both upgrade codes). No min_version: the inner MSI ProductVersion is not readable without extracting, ACE gets no more updates, and the Download Center asks to remove older versions first, so an in-place upgrade over an older ACE build is not expected to work. winget also lists Microsoft.VCRedist.2015+ as a dependency; Microsoft does not document one, so none is set."
+
+[package.source]
+url = "https://download.microsoft.com/download/3/5/c/35c84c36-661a-44e6-9324-8786b8dbe231/accessdatabaseengine.exe"
+filename = "accessdatabaseengine.exe"
+signer = ["Microsoft Corporation"]
+size = 81621424
+sha256 = "adc0504656f390d225530ac09f1fc2113295c4f9baeffea1e983fecf4ac960f0"
+
+[package.install]
+kind = "exe"
+args = "/quiet /norestart"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "msi-product"
+upgrade_code = "{00160000-00D1-0000-0000-0000000FF1CE}"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Classes\CLSID\{3BE786A2-0366-4F5C-9434-25CF162E475E}'
+view = "32"
+
+[[package]]
+id = "ace-2016-x64"
+name = "Access Database Engine 2016 Redistributable (x64)"
+description = { en = "Needed by 64-bit programs that read or write Access databases (.mdb, .accdb) or Excel and text files through the ACE OLE DB and ODBC drivers.", tr = "Access veritabanlarını (.mdb, .accdb), Excel ve metin dosyalarını ACE OLE DB ve ODBC sürücüleriyle okuyup yazan 64 bit programlar için gerekir." }
+version = "16.0.5044.1000"
+arch = "x64"
+profiles = ["developer"]
+order = 611
+conflicts = ["ace-2016-x86"]
+group = "ace-2016"
+legacy = true
+warning = { en = "Pick the bitness of your installed Office: 32-bit Office needs x86, 64-bit Office needs x64. Only one of the two can be installed. Microsoft 365 and Office 2021 or later already include this engine, and setup will not install next to them. Microsoft support ended on October 14, 2025.", tr = "Kurulu Office ile aynı bit sürümünü seçin: 32 bit Office için x86, 64 bit Office için x64. İkisinden yalnızca biri kurulabilir. Microsoft 365 ile Office 2021 ve sonrası bu motoru zaten içerir; kurulum bunların yanına yapılmaz. Microsoft desteği 14 Ekim 2025'te sona erdi." }
+homepage = "https://www.microsoft.com/download/details.aspx?id=54920"
+notes = "Download Center id=54920 (published 11/18/2025): accessdatabaseengine_X64.exe, PE version 16.0.5044.1000; support ended on October 14, 2025 (replacement: Microsoft 365 Access Runtime). Pinned URL; sha256 matches both winget manifests. Args /quiet /norestart from winget. Developer profile per docs/PACKAGES.md; 64-bit is the Office default since 2019. Detection: winget ProductCode {90160000-00D1-0409-1000-0000000FF1CE} / UpgradeCode {00160000-00D1-0000-1000-0000000FF1CE} (1 = x64 in Office's scheme), not confirmed from the inner MSI. Second rule: ACE 16.0 OLE DB provider CLSID in the 64-bit view, confirmed on the dev host where Office 2024 C2R x64 registers it (Learn: M365/2021+ C2R exposes ACE, and Office side-by-side detection blocks the redist there), so the planner skips a futile install; the dev host shows this package as installed through that rule. No min_version (see the x86 entry). Only this bitness is in the developer profile: the planner rejects a plan that holds both sides of a conflict. winget lists Microsoft.VCRedist.2015+ as a dependency; not documented by Microsoft, so none is set."
+
+[package.source]
+url = "https://download.microsoft.com/download/3/5/c/35c84c36-661a-44e6-9324-8786b8dbe231/accessdatabaseengine_X64.exe"
+filename = "accessdatabaseengine_X64.exe"
+signer = ["Microsoft Corporation"]
+size = 83400344
+sha256 = "04e96c9f1a1f7d251a88aececf1dc10ff65950392787427c00814a43308003de"
+
+[package.install]
+kind = "exe"
+args = "/quiet /norestart"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "msi-product"
+upgrade_code = "{00160000-00D1-0000-1000-0000000FF1CE}"
+
+[[package.detect.rules]]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Classes\CLSID\{3BE786A2-0366-4F5C-9434-25CF162E475E}'
+view = "64"
+
+# ---------------------------------------------------------------- ODBC Driver 18 for SQL Server
+
+[[package]]
+id = "msodbcsql-18-x86"
+name = "Microsoft ODBC Driver 18 for SQL Server (x86)"
+description = { en = "Needed by programs that connect to SQL Server or Azure SQL through ODBC on 32-bit Windows.", tr = "32 bit Windows'ta ODBC üzerinden SQL Server veya Azure SQL'e bağlanan programlar için gerekir." }
+version = "18.7.1.1"
+arch = "x86"
+os_arch = ["x86"]
+profiles = ["developer"]
+order = 620
+group = "msodbcsql-18"
+homepage = "https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server"
+notes = "Learn 'Download ODBC Driver for SQL Server': 18.7.1.1 (released September 7, 2026), x86 = fwlink 2378646. Learn: 'Use the x86 installer on 32-bit machines' and 'The x64 and arm64 installers install both 64-bit and 32-bit drivers', hence os_arch x86; the MSI also has the launch condition 'NOT VersionNT64' (Template Intel;1033), so it cannot install on 64-bit Windows at all. Pinned (link id changes per release); fallback is the download.microsoft.com URL the fwlink redirects to; sha256 matches winget Microsoft.msodbcsql.18 18.7.1.1. Learn: from 18.7 the VC++ redistributable is no longer a prerequisite (winget still lists it), so no depends. Properties from Learn 'System requirements, installation, and driver files' (IACCEPTMSODBCSQLLICENSETERMS=YES for /qn). Detection: UpgradeCode {BE2646D5-9B06-4F43-B195-99DF1343A0B1}, read from the MSI by refresh and the same in winget for every 18.x release and language. Not installed on the dev host."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2378646"
+fallback_urls = ["https://download.microsoft.com/download/ca8ce451-a4b4-42c0-ba73-f66642c4bfae/x86/1033/msodbcsql.msi"]
+filename = "msodbcsql18_x86.msi"
+signer = ["Microsoft Corporation"]
+size = 4628480
+sha256 = "b2cc946db432ac6d84064b8c55024e7157495a5d1f14f7402b291c2efb567ced"
+
+[package.install]
+kind = "msi"
+properties = "IACCEPTMSODBCSQLLICENSETERMS=YES"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{BE2646D5-9B06-4F43-B195-99DF1343A0B1}"
+min_version = "18.7.1.1"
+
+[[package]]
+id = "msodbcsql-18-x64"
+name = "Microsoft ODBC Driver 18 for SQL Server (x64)"
+description = { en = "Needed by 32-bit and 64-bit programs that connect to SQL Server or Azure SQL through ODBC.", tr = "ODBC üzerinden SQL Server veya Azure SQL'e bağlanan 32 ve 64 bit programlar için gerekir." }
+version = "18.7.1.1"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["developer"]
+order = 621
+group = "msodbcsql-18"
+homepage = "https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server"
+notes = "Learn download page: 18.7.1.1, x64 = fwlink 2378279; the x64 installer installs both the 64-bit and the 32-bit driver, and ARM64 machines get their own installer, hence os_arch x64. MSI tables (Template x64;1033): msodbcsql18.dll goes to System32 and SysWOW64, and the MSI carries the VC++ CRT merge modules for both. Pinned with the redirect target as fallback; sha256 matches winget. No VC++ prerequisite from 18.7 (Learn). Detection: UpgradeCode {ADA68B65-BFF8-4E6A-B082-CC6682D425B8} from refresh, stable across 18.x in winget. Not installed on the dev host."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2378279"
+fallback_urls = ["https://download.microsoft.com/download/d624e1c6-293b-4d6f-91b8-6e515a5d6a77/amd64/1033/msodbcsql.msi"]
+filename = "msodbcsql18_x64.msi"
+signer = ["Microsoft Corporation"]
+size = 10092544
+sha256 = "21ef69e4b942f18aced55fa7c3a8d7263004e113a96690bac7509645e1b1a310"
+
+[package.install]
+kind = "msi"
+properties = "IACCEPTMSODBCSQLLICENSETERMS=YES"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{ADA68B65-BFF8-4E6A-B082-CC6682D425B8}"
+min_version = "18.7.1.1"
+
+[[package]]
+id = "msodbcsql-18-arm64"
+name = "Microsoft ODBC Driver 18 for SQL Server (ARM64)"
+description = { en = "Needed by programs that connect to SQL Server or Azure SQL through ODBC on ARM64 Windows.", tr = "ARM64 Windows'ta ODBC üzerinden SQL Server veya Azure SQL'e bağlanan programlar için gerekir." }
+version = "18.7.1.1"
+arch = "arm64"
+profiles = ["developer"]
+order = 622
+group = "msodbcsql-18"
+homepage = "https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server"
+notes = "Learn download page: 18.7.1.1, ARM64 = fwlink 2378647 ('use the arm64 installer on ARM64 machines'; it installs both 64-bit and 32-bit drivers). Learn does not say whether x64-emulated apps get a driver from it. MSI Template Arm64;1033; it places msodbcsql18.dll in System32 and SysWOW64 (x86 apps covered) and carries the VC++ CRT merge modules. Pinned with the redirect target as fallback; sha256 matches winget. MSI ProductName 'Microsoft ODBC Driver 18 for SQL Server (ARM64)', UpgradeCode {92FA5E25-3AEB-4D60-8E7A-8F1433FA93AF} from refresh, stable across 18.x in winget. Cannot be tested on the x64 dev host."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2378647"
+fallback_urls = ["https://download.microsoft.com/download/92f6c111-1489-4538-8d7e-b35218b0675b/arm64/1033/msodbcsql.msi"]
+filename = "msodbcsql18_arm64.msi"
+signer = ["Microsoft Corporation"]
+size = 13148160
+sha256 = "fc61b5a9c52b4bb62e0c735f275e7579ede0a62e0e4b60811ef4a63ea55ac52b"
+
+[package.install]
+kind = "msi"
+properties = "IACCEPTMSODBCSQLLICENSETERMS=YES"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{92FA5E25-3AEB-4D60-8E7A-8F1433FA93AF}"
+min_version = "18.7.1.1"
+
+# ---------------------------------------------------------------- OLE DB Driver 19 for SQL Server
+
+[[package]]
+id = "msoledbsql-19-x86"
+name = "Microsoft OLE DB Driver 19 for SQL Server (x86)"
+description = { en = "Needed by programs that connect to SQL Server or Azure SQL through OLE DB on 32-bit Windows.", tr = "32 bit Windows'ta OLE DB üzerinden SQL Server veya Azure SQL'e bağlanan programlar için gerekir." }
+version = "19.4.3"
+arch = "x86"
+os_arch = ["x86"]
+profiles = ["developer"]
+order = 630
+depends = ["vc-v14-x86"]
+group = "msoledbsql-19"
+homepage = "https://learn.microsoft.com/sql/connect/oledb/download-oledb-driver-for-sql-server"
+notes = "Learn 'Download Microsoft OLE DB Driver for SQL Server': 19.4.3 (released October 9, 2026), x86 = fwlink 2383708. Learn: the x64 installer installs both the 64-bit and the 32-bit driver, hence os_arch x86; the MSI's launch condition 'NOT VersionNT64' also blocks it on 64-bit Windows. Pinned (the 19.4.2 link ids still serve 19.4.2); fallback is the redirect target. Learn 'Installing OLE DB Driver for SQL Server': VC++ redistributable is a prerequisite since 19.3 (x86 installer needs the x86 package), and IACCEPTMSOLEDBSQLLICENSETERMS=YES is required with /qn. No winget manifest exists for this driver. Detection: MSI UpgradeCode read by refresh (unchanged from 19.4.2). Not installed on the dev host."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2383708"
+fallback_urls = ["https://download.microsoft.com/download/311928aa-f23f-462f-8441-ce194ac3a5e0/x86/1033/msoledbsql.msi"]
+filename = "msoledbsql19_x86.msi"
+signer = ["Microsoft Corporation"]
+size = 4276224
+sha256 = "748f5659d70fb745450ccddb0dc3eefb2b8685aa64d25a54fa34dc9693c44202"
+
+[package.install]
+kind = "msi"
+properties = "IACCEPTMSOLEDBSQLLICENSETERMS=YES"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{258C3003-13E6-42B7-95F8-EB693F67999F}"
+min_version = "19.4.3"
+
+[[package]]
+id = "msoledbsql-19-x64"
+name = "Microsoft OLE DB Driver 19 for SQL Server (x64 and ARM64)"
+description = { en = "Needed by 32-bit and 64-bit programs that connect to SQL Server or Azure SQL through OLE DB.", tr = "OLE DB üzerinden SQL Server veya Azure SQL'e bağlanan 32 ve 64 bit programlar için gerekir." }
+version = "19.4.3"
+arch = "x64"
+profiles = ["developer"]
+order = 631
+depends = ["vc-v14-x86", "vc-v14-x64", "vc-v14-arm64"]
+group = "msoledbsql-19"
+homepage = "https://learn.microsoft.com/sql/connect/oledb/download-oledb-driver-for-sql-server"
+notes = "Learn download page: 19.4.3, 'x64 and Arm64' = fwlink 2382896. Release notes 19.4.1: one 64-bit MSI installs the x64 or the Arm64 binaries depending on the OS, so arch x64 with the default os_arch (x64 and arm64). Learn: the x64 MSI also installs the 32-bit driver. MSI tables confirm it: msoledbsql19.dll goes to SysWOW64 unconditionally and to System32 as the x64 or the Arm64 build (component condition IsArm64Platform), so x86 apps are covered on ARM64 too; release notes 19.3.0 say the Arm64 driver has no x64-emulation driver. Its Upgrade table also removes the old 19.3 Arm64 MSI line (UpgradeCode {2374EF99-C4C2-4A9F-A8CF-E5278C58434B}), which detection does not report as an older version. Pinned with the redirect target as fallback. VC++ prerequisite per Learn: the x64 installer needs both x86 and x64 packages, the ARM64 driver needs the ARM64 package; vc-v14-arm64 is skipped by the planner on x64. Properties per Learn (IACCEPTMSOLEDBSQLLICENSETERMS=YES). Detection: MSI UpgradeCode read by refresh (unchanged from 19.4.2). Not installed on the dev host."
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2382896"
+fallback_urls = ["https://download.microsoft.com/download/bbb0d870-7a04-44d9-af17-af28575a0ed8/amd64/1033/msoledbsql.msi"]
+filename = "msoledbsql19_x64.msi"
+signer = ["Microsoft Corporation"]
+size = 15052800
+sha256 = "c1d5bd79c316588fb08c852acf76628ab662426e763b68aef4cfa25fa1dd7beb"
+
+[package.install]
+kind = "msi"
+properties = "IACCEPTMSOLEDBSQLLICENSETERMS=YES"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{B1F32E34-48E0-426C-8B0F-9DB732A4C975}"
+min_version = "19.4.3"

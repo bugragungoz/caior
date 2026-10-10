@@ -1,0 +1,145 @@
+# Legacy components: rarely needed, off by default.
+# Researched 2026-10-08, re-checked 2026-10-10. Every fact below comes from a Microsoft source;
+# see each package's notes. winget-pkgs (Microsoft.MSXML.4) was used as a cross-check.
+#
+# Left out (no official download, or nothing to install on Windows 10/11):
+# - Visual Basic 6.0 SP6 run-time (vbrun60sp6.exe, KB290887): the "Run-Time Redistribution Pack" link on the
+#   Learn "Visual Basic 6.0 Downloads" page (learn.microsoft.com/previous-versions/visualstudio/visual-basic-6/downloads,
+#   familyid=7b9ba261-7a9c-43e7-9117-f673077ffb3c) now redirects to microsoft.com/en-us/download/404Error.aspx,
+#   Download Center id=24417 is 404, and so is the old file URL
+#   download.microsoft.com/download/5/a/d/5ad868a0-8ecd-4bb0-a882-fe53eb7ef348/VB6.0-KB290887-X86.exe.
+#   It is also not needed any more: the core run-time files (msvbvm60.dll, oleaut32.dll, stdole2.tlb ...) ship
+#   in Windows 10/11 and are supported for the OS lifetime (Learn "Support Statement for Visual Basic 6.0",
+#   learn.microsoft.com/previous-versions/visualstudio/visual-basic-6/visual-basic-6-support-policy).
+#   The Windows 11 23H2 dev host has %SystemRoot%\SysWOW64\msvbvm60.dll 6.00.9848 out of the box.
+#   The "extended" OCX files are not in Windows, and the support statement says apps must ship them. The only
+#   official packages for them do not help an end user:
+#   * VB6 SP6 Cumulative Update (VB60SP6-KB2708437-x86-ENU.msi, Download Center id=7030, KB957924; fwlink 142927):
+#     read-only MSI check shows LaunchCondition 'VB6PRODUCTDIR AND VB6SP6REGKEY="#6"' ("you must have Microsoft
+#     Visual Basic 6.0 SP6 Product Installed"), AppSearch on SOFTWARE\Microsoft\VisualStudio\6.0, so it needs the IDE.
+#   * Common Controls update (VisualBasic6-KB896559-v1-ENU.exe, id=10019): the page says it "will not install these
+#     Common Controls if they do not already exist on the target system".
+# - Visual F# 4.1 runtime: Microsoft never published a standalone redistributable. F# 4.1 shipped in
+#   Visual Studio 2017, the .NET Core SDK and as the FSharp.Core NuGet package that each app carries
+#   (devblogs.microsoft.com/dotnet/announcing-f-4-1-and-the-visual-f-tools-for-visual-studio-2017-2).
+#   Download Center id=48179 is "Visual F# Tools 4.0 RTM" (compiler tools, 4.0), not a 4.1 runtime.
+#   The v1 "Visual_F_4.1.msi" is the unsigned "Visual F# 4.1 SDK" (14.0.23801, ProductCode
+#   {5ADB9708-9ADA-3786-8D8E-C93E5E9F2594}) payload from the Visual Studio installer, not a runtime package.
+# - Media Feature Pack for Windows 10 1903 and older N (incl. LTSC 2019 N, build 17763): only offered on
+#   microsoft.com/software-download/mediafeaturepack (versions 1709-1903), which hands out expiring
+#   per-session links (DownloadExpirationDatetime), so there is no stable URL to pin. The Microsoft Update
+#   Catalog has no "Media Feature Pack" entries (search checked 2026-10-10).
+
+[category]
+id = "legacy"
+name = { en = "Legacy components", tr = "Eski bileşenler" }
+description = { en = "Old or rarely needed components that only some apps ask for. Most PCs do not need them, so they are off by default.", tr = "Yalnızca bazı uygulamaların istediği eski ya da nadiren gereken bileşenler. Çoğu bilgisayarda gerekmez, bu yüzden varsayılan olarak kapalıdır." }
+order = 80
+icon = "archive"
+
+# ---------------------------------------------------------------- MSXML 4.0 SP3
+
+[[package]]
+id = "msxml-4-sp3"
+name = "MSXML 4.0 SP3 (x86)"
+description = { en = "XML parser that some older apps still load by name (Msxml2.DOMDocument.4.0) and that Windows does not include.", tr = "Bazı eski uygulamaların hâlâ adıyla yüklediği, Windows ile gelmeyen XML ayrıştırıcı (Msxml2.DOMDocument.4.0)." }
+version = "4.30.2117.0"
+arch = "x86"
+profiles = ["legacy"]
+order = 810
+legacy = true
+warning = { en = "MSXML 4.0 has been out of support since 2014 and has known security vulnerabilities. It cannot be removed after it is installed. Install it only if an app asks for it.", tr = "MSXML 4.0'ın desteği 2014'te bitti ve bilinen güvenlik açıkları var. Kurulduktan sonra kaldırılamaz. Yalnızca bir uygulama isterse kurun." }
+homepage = "https://www.microsoft.com/download/details.aspx?id=36292"
+notes = """
+Security Update for Microsoft XML Core Services 4.0 Service Pack 3 (KB2758694, MS13-002), the last MSXML 4.0 build.
+Download Center: microsoft.com/download/details.aspx?id=36292 (live 2026-10-10, published 2024-07-15; links this exact URL;
+says "Once you have installed this item, it cannot be removed" and "you may have to restart"). Its OS list stops at
+Windows 8 / Server 2012, but it is a plain MSI and winget ships it for current Windows. The original SP3 download (id=15697) is gone.
+Lifecycle: learn.microsoft.com/lifecycle/products/microsoft-xml-core-services-40 (Fixed policy, ended 2014-04-13, SP3 only).
+Switches: MS13-002 bulletin (learn.microsoft.com/security-updates/securitybulletins/2013/ms13-002) documents /quiet and /norestart.
+The exe is an sfxcab wrapper (signed, CN=Microsoft Corporation). Its _sfx_manifest_ runs
+"%SYSTEMROOT%\\system32\\msiexec /i msxml.msi /l*v %SYSTEMROOT%\\msxml4-KB2758694-enu.LOG <args>", so the args go to
+msiexec and the exit code is msiexec's (3010 = restart needed).
+msxml.msi, read-only: ProductName "MSXML 4.0 SP3 Parser (KB2758694)", ProductCode {1D95BA90-F4F8-47EC-A882-441C99D30C1E},
+UpgradeCode {F182AA3C-23F1-44F7-B13F-28B29A7D4045}, ProductVersion 4.30.2117.0, ALLUSERS 1; the only LaunchCondition blocks
+Windows 95; Upgrade table only detects newer builds (NEWERFOUND). Installs msxml4.dll 4.30.2117.0 into SystemFolder
+(SysWOW64 on x64) plus the WinSxS assembly.
+The original SP3 msxml.msi (4.30.2100.0, {196467F1-C11F-4F76-858B-5812ADC83B94}, v1 cache) has the same UpgradeCode,
+so detection uses the UpgradeCode with min_version: an older SP3 build shows as outdated.
+winget-pkgs Microsoft.MSXML.4 4.0-SP3: same URL and sha256, ProductCode {1D95BA90-...}, Silent "/quiet /qn /norestart".
+Dev host: not installed (no msxml4.dll, no Installer UpgradeCodes\\C3AA281F1F327F441BF3822BA9D70454, no Uninstall entry),
+so the rule correctly reports "not installed"; a positive case could not be checked without installing.
+"""
+
+[package.source]
+url = "https://download.microsoft.com/download/a/7/6/a7611ffc-4f68-4fb1-a931-95882ec013fc/msxml4-KB2758694-enu.exe"
+filename = "msxml4-KB2758694-enu.exe"
+signer = ["Microsoft Corporation"]
+size = 2066376
+sha256 = "52d80e6e7ba94437199a2e6b51f00c7f483269c02bedec2253c4602f5209b31b"
+
+[package.install]
+kind = "exe"
+args = "/quiet /norestart"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 600
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{F182AA3C-23F1-44F7-B13F-28B29A7D4045}"
+min_version = "4.30.2117.0"
+
+# ---------------------------------------------------------------- Media Feature Pack (N editions)
+
+[[package]]
+id = "media-feature-pack"
+name = "Media Feature Pack (Windows N)"
+description = { en = "Adds Windows Media Player, Media Foundation and media codecs to Windows N editions, where games, video apps and Teams calls need it.", tr = "Windows N sürümlerine Windows Media Player, Media Foundation ve medya codec'lerini ekler; bu sürümlerde oyunlar, video uygulamaları ve Teams aramaları buna ihtiyaç duyar." }
+version = "Windows optional feature"
+arch = "neutral"
+os_min = "10.0.18363"
+only_n_edition = true
+profiles = []
+order = 850
+warning = { en = "Downloads from Windows Update and needs a restart to finish.", tr = "Windows Update'ten indirilir ve tamamlanması için yeniden başlatma gerekir." }
+homepage = "https://support.microsoft.com/topic/media-feature-pack-list-for-windows-n-editions-c1c6fffa-d052-8338-7a79-a4bb980a700a"
+notes = """
+Current Windows component, not legacy; it lives here because it is rarely needed. The GUI offers it only on N editions.
+support.microsoft.com KB3145500 "Media Feature Pack list for Windows N editions" (now redirects to
+support.microsoft.com/windows/experience/platform-variants/media-feature-pack-list-for-windows-n-editions):
+"For Windows 10, version 1909 and later, the Media Feature Pack is only available for download as an Optional Feature",
+hence os_min 10.0.18363 (older N builds: see the file header).
+support.microsoft.com/topic/2aaf89b8-f9d3-4322-98d0-612c9bea9c01 (Windows 10/11 N, February 2023): contents (WMP, Windows Media
+Format/DRM, Media Foundation, WPD, codecs), no restart prompt but a restart is required, Teams calling and Xbox Game Bar need it.
+Capability name Media.MediaFeaturePack~~~~0.0.1.0: no Microsoft doc page names it (not in Learn "Available features on demand");
+it comes from DISM /Get-Capabilities output quoted in Microsoft Q&A threads (learn.microsoft.com/answers/questions/1601925,
+/5773369, /5527862, /5976703 for 25H2). N editions also list Media.WindowsMediaPlayer~~~~0.0.12.0 separately.
+Not present on the non-N dev host (CBS CapabilityIndex only has Media.WindowsMediaPlayer), so it could not be confirmed locally.
+Needs Windows Update: Learn "Available features on demand" notes that WSUS blocks FoD packages by default, and Q&A 1601925
+(SCCM-managed 22H2) fails because DISM has to reach Microsoft servers. Other reported failures: 0x800f0991 (missing FoD delta
+files, 5976703), DISM error 87 (invalid parameter, e.g. a capability name the edition does not offer), error 50 = 0x80070032 on 24H2 26100.4946 (5527862, no fix), 14098 (component store, 5773369).
+Detection: dism-capability needs admin rights, so the non-elevated GUI also checks %SystemRoot%\\System32\\mfplat.dll.
+Why that file: the February 2023 page lists Media Foundation among the parts N editions leave out, and Learn
+(learn.microsoft.com/windows/win32/api/mfapi/nf-mfapi-mfstartup) gives Mfplat.dll as the Media Foundation platform DLL;
+the many "MFPlat.DLL was not found" loader errors from N users in Microsoft Q&A show the file itself is absent there.
+It is present on every non-N edition (dev host: 10.0.22621.4741), where this package is never offered.
+"""
+
+[package.install]
+kind = "dism-capability"
+capability = "Media.MediaFeaturePack~~~~0.0.1.0"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "any"
+
+[[package.detect.rules]]
+kind = "dism-capability"
+capability = "Media.MediaFeaturePack~~~~0.0.1.0"
+
+[[package.detect.rules]]
+kind = "file-version"
+path = '%SystemRoot%\System32\mfplat.dll'

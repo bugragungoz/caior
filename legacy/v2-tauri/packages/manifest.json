@@ -1,0 +1,563 @@
+{
+  "version": "2.0.0",
+  "categories": [
+    {
+      "id": "vcredist",
+      "label": "Visual C++ Redistributables",
+      "icon": "deployed_code",
+      "packages": [
+        {
+          "id": "vcredist-2005-x86",
+          "name": "VC++ 2005 x86",
+          "version": "8.0.50727",
+          "url": "https://download.microsoft.com/download/6/B/B/6BB661D6-A8AE-4819-B79F-236472F6070C/vcredist_x86.exe",
+          "drive_url": null,
+          "args": "/Q",
+          "installer_type": "exe",
+          "size_mb": 2,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2005-x64",
+          "name": "VC++ 2005 x64",
+          "version": "8.0.50727",
+          "url": "https://download.microsoft.com/download/6/B/B/6BB661D6-A8AE-4819-B79F-236472F6070C/vcredist_x64.exe",
+          "drive_url": null,
+          "args": "/Q",
+          "installer_type": "exe",
+          "size_mb": 3,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2008-x86",
+          "name": "VC++ 2008 x86",
+          "version": "9.0.30729",
+          "url": "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x86.exe",
+          "drive_url": null,
+          "args": "/q",
+          "installer_type": "exe",
+          "size_mb": 4,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2008-x64",
+          "name": "VC++ 2008 x64",
+          "version": "9.0.30729",
+          "url": "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe",
+          "drive_url": null,
+          "args": "/q",
+          "installer_type": "exe",
+          "size_mb": 4,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2010-x86",
+          "name": "VC++ 2010 x86",
+          "version": "10.0.40219",
+          "url": "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 5,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2010-x64",
+          "name": "VC++ 2010 x64",
+          "version": "10.0.40219",
+          "url": "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 5,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2012-x86",
+          "name": "VC++ 2012 x86",
+          "version": "11.0.61030",
+          "url": "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 6,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2012-x64",
+          "name": "VC++ 2012 x64",
+          "version": "11.0.61030",
+          "url": "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 7,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": null
+        },
+        {
+          "id": "vcredist-2013-x86",
+          "name": "VC++ 2013 x86",
+          "version": "12.0.40664",
+          "url": "https://aka.ms/highdpimfc2013x86enu",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 6,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\12.0\\VC\\Runtimes\\x86",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "vcredist-2013-x64",
+          "name": "VC++ 2013 x64",
+          "version": "12.0.40664",
+          "url": "https://aka.ms/highdpimfc2013x64enu",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 7,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\VisualStudio\\12.0\\VC\\Runtimes\\x64",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "vcredist-2022-x86",
+          "name": "VC++ 2015-2022 x86",
+          "version": "14.x (latest)",
+          "url": "https://aka.ms/vs/17/release/vc_redist.x86.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 14,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x86",
+            "value": "Installed",
+            "min_dword": 1
+          }
+        },
+        {
+          "id": "vcredist-2022-x64",
+          "name": "VC++ 2015-2022 x64",
+          "version": "14.x (latest)",
+          "url": "https://aka.ms/vs/17/release/vc_redist.x64.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 25,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64",
+            "value": "Installed",
+            "min_dword": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "dotnet",
+      "label": ".NET Runtimes",
+      "icon": "widgets",
+      "packages": [
+        {
+          "id": "dotnet-35",
+          "name": ".NET Framework 3.5",
+          "version": "3.5 SP1",
+          "url": "https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe",
+          "drive_url": null,
+          "args": "/q /norestart",
+          "installer_type": "exe",
+          "size_mb": 23,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v3.5",
+            "value": "Install",
+            "min_dword": 1
+          }
+        },
+        {
+          "id": "dotnet-48",
+          "name": ".NET Framework 4.8",
+          "version": "4.8",
+          "url": "https://go.microsoft.com/fwlink/?LinkId=2085155",
+          "drive_url": null,
+          "args": "/q /norestart",
+          "installer_type": "exe",
+          "size_mb": 66,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full",
+            "value": "Release",
+            "min_dword": 528040
+          }
+        },
+        {
+          "id": "dotnet-481",
+          "name": ".NET Framework 4.8.1",
+          "version": "4.8.1",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2203306",
+          "drive_url": null,
+          "args": "/q /norestart",
+          "installer_type": "exe",
+          "size_mb": 68,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full",
+            "value": "Release",
+            "min_dword": 533320
+          }
+        },
+        {
+          "id": "dotnet-8-x64",
+          "name": ".NET 8 Desktop Runtime x64",
+          "version": "8.x LTS",
+          "url": "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 55,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\dotnet\\Setup\\InstalledVersions\\x64\\sharedfx\\Microsoft.WindowsDesktop.App",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "dotnet-8-x86",
+          "name": ".NET 8 Desktop Runtime x86",
+          "version": "8.x LTS",
+          "url": "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x86.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 48,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\dotnet\\Setup\\InstalledVersions\\x86\\sharedfx\\Microsoft.WindowsDesktop.App",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "dotnet-9-x64",
+          "name": ".NET 9 Runtime x64",
+          "version": "9.x",
+          "url": "https://aka.ms/dotnet/9.0/dotnet-runtime-win-x64.exe",
+          "drive_url": null,
+          "args": "/quiet /norestart",
+          "installer_type": "exe",
+          "size_mb": 28,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\dotnet\\Setup\\InstalledVersions\\x64\\sharedfx\\Microsoft.NETCore.App",
+            "value": null,
+            "min_dword": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "game",
+      "label": "Game Runtimes",
+      "icon": "sports_esports",
+      "packages": [
+        {
+          "id": "directx-jun2010",
+          "name": "DirectX June 2010",
+          "version": "Jun 2010",
+          "url": "https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe",
+          "drive_url": null,
+          "args": "/Q",
+          "installer_type": "directx_redist",
+          "size_mb": 95,
+          "recommended": true,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "openal",
+          "name": "OpenAL",
+          "version": "2.1.0",
+          "url": "https://www.openal.org/downloads/oalinst.zip",
+          "drive_url": null,
+          "args": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+          "installer_type": "exe",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "physx",
+          "name": "PhysX System Software",
+          "version": "9.21.x",
+          "url": "",
+          "drive_url": null,
+          "args": "/s",
+          "installer_type": "exe",
+          "size_mb": 28,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": null
+        },
+        {
+          "id": "xna-40",
+          "name": "XNA Framework 4.0",
+          "version": "4.0",
+          "url": "",
+          "drive_url": null,
+          "args": "",
+          "installer_type": "msi",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vulkan",
+          "name": "Vulkan Runtime",
+          "version": "1.x (latest)",
+          "url": "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime.exe",
+          "drive_url": null,
+          "args": "--accept-licenses --default-answer --confirm-command install",
+          "installer_type": "exe",
+          "size_mb": 8,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers",
+            "value": null,
+            "min_dword": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "label": "Web Components",
+      "icon": "public",
+      "packages": [
+        {
+          "id": "webview2-x64",
+          "name": "WebView2 Runtime x64",
+          "version": "Evergreen",
+          "url": "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+          "drive_url": null,
+          "args": "/silent /install",
+          "installer_type": "exe",
+          "size_mb": 119,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "webview2-x86",
+          "name": "WebView2 Runtime x86",
+          "version": "Evergreen",
+          "url": "https://go.microsoft.com/fwlink/p/?LinkId=2124701",
+          "drive_url": null,
+          "args": "/silent /install",
+          "installer_type": "exe",
+          "size_mb": 95,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": null
+        }
+      ]
+    },
+    {
+      "id": "java",
+      "label": "Java Runtime",
+      "icon": "coffee",
+      "packages": [
+        {
+          "id": "java-x86",
+          "name": "Java Runtime x86",
+          "version": "8.x",
+          "url": "",
+          "drive_url": null,
+          "args": "INSTALLDIR=\"C:\\Program Files (x86)\\Java\\jre\" /qn /norestart",
+          "installer_type": "msi",
+          "size_mb": 2,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Wow6432Node\\JavaSoft\\Java Runtime Environment",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "java-x64",
+          "name": "Java Runtime x64",
+          "version": "8.x",
+          "url": "",
+          "drive_url": null,
+          "args": "INSTALLDIR=\"C:\\Program Files\\Java\\jre\" /qn /norestart",
+          "installer_type": "msi",
+          "size_mb": 3,
+          "recommended": false,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\JavaSoft\\Java Runtime Environment",
+            "value": null,
+            "min_dword": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "system",
+      "label": "System Tools",
+      "icon": "settings",
+      "packages": [
+        {
+          "id": "winget",
+          "name": "WinGet / App Installer",
+          "version": "1.x (latest)",
+          "url": "https://aka.ms/getwinget",
+          "drive_url": null,
+          "args": "",
+          "installer_type": "msixbundle",
+          "size_mb": 15,
+          "recommended": true,
+          "legacy": false,
+          "registry_check": {
+            "hive": "HKCU",
+            "key": "SOFTWARE\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\SystemAppData\\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\\Schemas",
+            "value": null,
+            "min_dword": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "legacy",
+      "label": "Legacy Components",
+      "icon": "history",
+      "packages": [
+        {
+          "id": "msxml-40",
+          "name": "MSXML 4.0 SP3",
+          "version": "4.0 SP3",
+          "url": "",
+          "drive_url": null,
+          "args": "",
+          "installer_type": "msi",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": {
+            "hive": "HKLM",
+            "key": "SOFTWARE\\Microsoft\\MSXML40",
+            "value": null,
+            "min_dword": null
+          }
+        },
+        {
+          "id": "vbcrun",
+          "name": "VB/C Runtime",
+          "version": "",
+          "url": "",
+          "drive_url": null,
+          "args": "",
+          "installer_type": "msi",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "visual-fsharp-41",
+          "name": "Visual F# 4.1",
+          "version": "4.1",
+          "url": "",
+          "drive_url": null,
+          "args": "",
+          "installer_type": "msi",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vstor-x86",
+          "name": "VSTOR 4.0 x86",
+          "version": "4.0",
+          "url": "https://download.microsoft.com/download/C/0/0/C0028A53-47CF-4F4B-8F9D-0DF02B99B11A/vstor40_x86.exe",
+          "drive_url": null,
+          "args": "/q /norestart",
+          "installer_type": "exe",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        },
+        {
+          "id": "vstor-x64",
+          "name": "VSTOR 4.0 x64",
+          "version": "4.0",
+          "url": "https://download.microsoft.com/download/C/0/0/C0028A53-47CF-4F4B-8F9D-0DF02B99B11A/vstor40_x64.exe",
+          "drive_url": null,
+          "args": "/q /norestart",
+          "installer_type": "exe",
+          "size_mb": 1,
+          "recommended": false,
+          "legacy": true,
+          "registry_check": null
+        }
+      ]
+    }
+  ]
+}

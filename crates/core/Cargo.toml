@@ -1,0 +1,26 @@
+[package]
+name = "caior-core"
+description = "CAIOR core: catalog, detection, download, install engine, offline bundles"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "caior_core"
+
+[dependencies]
+regex.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "native-tls"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+thiserror.workspace = true
+toml.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_System_ApplicationInstallationAndServicing", "Win32_Storage_FileSystem", "Win32_System_Environment", "Win32_System_Com", "Win32_Security", "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog", "Win32_Security_Cryptography_Sip", "Win32_System_JobObjects", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Pipes", "Win32_System_IO", "Management_Deployment", "ApplicationModel", "Foundation_Collections"] }
+winreg = "0.56.0"
+wmi = "0.18.4"

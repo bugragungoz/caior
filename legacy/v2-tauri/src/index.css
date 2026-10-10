@@ -1,0 +1,304 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: "Roboto", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background: var(--md-surface);
+  color: var(--md-on-surface);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--md-outline-variant);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--md-outline);
+}
+
+/* ─── Typography scale (MD3) ─── */
+.title-large {
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 28px;
+  letter-spacing: 0;
+}
+.title-medium {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+}
+.title-small {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.1px;
+}
+.body-large {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.5px;
+}
+.body-medium {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+.body-small {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+}
+.label-large {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.1px;
+}
+.label-medium {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.5px;
+}
+.label-small {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Elevated card surface ─── */
+.surface-container {
+  background: var(--md-surface-container);
+}
+.surface-container-low {
+  background: var(--md-surface-container-low);
+}
+.surface-container-high {
+  background: var(--md-surface-container-high);
+}
+
+/* ─── Ripple effect placeholder ─── */
+button,
+[role="button"] {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+}
+button:focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: 2px;
+}
+
+/* ─── MD3 Button: Filled ─── */
+.btn-filled {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+.btn-filled:hover {
+  opacity: 0.92;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.btn-filled:active {
+  opacity: 0.85;
+}
+.btn-filled:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* ─── MD3 Button: Tonal ─── */
+.btn-tonal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  transition: opacity 0.15s;
+}
+.btn-tonal:hover { opacity: 0.9; }
+.btn-tonal:active { opacity: 0.8; }
+.btn-tonal:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* ─── MD3 Button: Outlined ─── */
+.btn-outlined {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  border: 1px solid var(--md-outline);
+  color: var(--md-primary);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  transition: background 0.15s;
+}
+.btn-outlined:hover { background: color-mix(in srgb, var(--md-primary) 8%, transparent); }
+.btn-outlined:active { background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
+.btn-outlined:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* ─── MD3 Button: Text ─── */
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 20px;
+  color: var(--md-primary);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  transition: background 0.15s;
+}
+.btn-text:hover { background: color-mix(in srgb, var(--md-primary) 8%, transparent); }
+.btn-text:active { background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
+.btn-text:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* ─── Checkbox (MD3 style) ─── */
+.md-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--md-outline);
+  border-radius: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.md-checkbox:checked {
+  background: var(--md-primary);
+  border-color: var(--md-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23381E72' d='M2 6l3 3 5-5' stroke='%23381E72' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.md-checkbox:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* ─── Progress bar (MD3 linear) ─── */
+.progress-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--md-surface-container-highest);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--md-primary);
+  transition: width 0.3s ease;
+}
+
+/* ─── Status badges ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.badge-installed {
+  background: color-mix(in srgb, var(--md-primary) 15%, transparent);
+  color: var(--md-primary);
+}
+.badge-recommended {
+  background: color-mix(in srgb, var(--md-tertiary) 15%, transparent);
+  color: var(--md-tertiary);
+}
+.badge-legacy {
+  background: color-mix(in srgb, var(--md-outline) 15%, transparent);
+  color: var(--md-on-surface-variant);
+}
+.badge-error {
+  background: color-mix(in srgb, var(--md-error) 15%, transparent);
+  color: var(--md-error);
+}
+.badge-no-url {
+  background: color-mix(in srgb, var(--md-outline) 12%, transparent);
+  color: var(--md-outline);
+}
+
+/* ─── Divider ─── */
+.divider {
+  height: 1px;
+  background: var(--md-outline-variant);
+  opacity: 0.5;
+}
+
+/* ─── Overlay / Scrim ─── */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+/* ─── Transitions ─── */
+.fade-in {
+  animation: fadeIn 0.2s ease;
+}
+.slide-up {
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

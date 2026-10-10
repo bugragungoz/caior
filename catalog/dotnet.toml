@@ -1,0 +1,1353 @@
+# .NET Framework and modern .NET runtimes.
+# Detection facts were checked on a Windows 11 23H2 x64 host with reg query:
+#   NDP\v4\Full Release = 533320 (4.8.1, built in) in both registry views; the rules read the
+#   native (64) view, which Windows ignores on 32-bit systems.
+#   dotnet\Setup\InstalledVersions\<arch>\sharedfx\<framework> exists only in the
+#   32-bit view (WOW6432Node), for x64 and x86 alike; one REG_DWORD 1 per version.
+#   The installers write it from a Bitness="always32" component for x86/x64/arm64
+#   (dotnet/arcade src/Microsoft.DotNet.Build.Tasks.Installers/build/wix5/product/registrykeys.wxs;
+#   same template in dotnet/core-setup release/3.1), so arm64 lives under
+#   InstalledVersions\arm64 in the 32-bit view too.
+
+[category]
+id = "dotnet"
+name = { en = ".NET", tr = ".NET" }
+description = { en = ".NET Framework and the modern .NET runtimes that desktop apps, games and web apps need.", tr = "Masaüstü uygulamalarının, oyunların ve web uygulamalarının ihtiyaç duyduğu .NET Framework ve modern .NET çalışma zamanları." }
+order = 20
+icon = "layers"
+
+# --- .NET Framework -----------------------------------------------------------
+
+[[package]]
+id = "netfx-35"
+name = ".NET Framework 3.5 (includes 2.0 and 3.0)"
+description = { en = "Older apps and games built for .NET Framework 2.0, 3.0 or 3.5 need this Windows feature.", tr = ".NET Framework 2.0, 3.0 veya 3.5 ile yazılmış eski uygulamalar ve oyunlar bu Windows özelliğine ihtiyaç duyar." }
+version = "3.5 SP1"
+arch = "neutral"
+os_max = "10.0.27964"
+profiles = ["recommended", "gaming"]
+order = 200
+homepage = "https://learn.microsoft.com/dotnet/framework/install/dotnet-35-windows"
+notes = '''
+Windows feature NetFx3, installed from Windows Update with DISM on Windows 10 and Windows 11
+through 25H2 (the old dotnetfx35.exe is not used).
+Command per Microsoft Learn: DISM /Online /Enable-Feature /FeatureName:NetFx3 /All
+Offline: add /LimitAccess /Source:<media>\sources\sxs from media of the SAME Windows version.
+Common failures: 0x800f081f / 0x800f0906 / 0x800f0907 (source not found, WSUS or policy blocks WU).
+os_max: Insider build 27965 removed NetFx3 as an optional component and Windows 11 26H1
+(build 28000) ships without it; there netfx-35-standalone is offered instead (devblogs
+announcement 2026-02-05, Learn "Install .NET Framework 3.5 on Windows 11"). Windows 11 26H2
+(Insider builds 26300 / 26340) is an enablement package on the 25H2 base and so stays on DISM
+here; Learn only names 26H1 (build 28000), so confirm once 26H2 ships. Re-check os_max when a new
+Windows release ships.
+Sources: learn.microsoft.com/windows-hardware/manufacture/desktop/deploy-net-framework-35-by-using-deployment-image-servicing-and-management--dism
+         learn.microsoft.com/troubleshoot/windows-client/application-management/dotnet-framework-35-installation-error
+         learn.microsoft.com/dotnet/framework/install/dotnet-35-windows-11
+         devblogs.microsoft.com/dotnet/dotnet-framework-3-5-moves-to-standalone-deployment-in-new-versions-of-windows
+Support: .NET Framework 3.5 SP1 is supported until 2029-01-09 (Microsoft lifecycle), so not legacy.
+'''
+
+[package.install]
+kind = "dism-feature"
+feature = "NetFx3"
+all = true
+source_hint = { en = "Without Windows Update, mount a Windows ISO of the same version and build as this PC and use its sources\\sxs folder as the source.", tr = "Windows Update yoksa bu bilgisayarla aynı sürüm ve derlemedeki bir Windows ISO'sunu bağlayın ve kaynak olarak içindeki sources\\sxs klasörünü kullanın." }
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "dism-feature"
+feature = "NetFx3"
+
+[[package]]
+id = "netfx-35-standalone"
+name = ".NET Framework 3.5 for Windows 11 26H1 (includes 2.0 and 3.0)"
+description = { en = "Older apps and games built for .NET Framework 2.0, 3.0 or 3.5 need it; on Windows 11 26H1 it is a separate installer instead of a Windows feature.", tr = ".NET Framework 2.0, 3.0 veya 3.5 ile yazılmış eski uygulamalar ve oyunlar buna ihtiyaç duyar; Windows 11 26H1'de Windows özelliği değil, ayrı bir kurulum dosyasıdır." }
+version = "3.5 SP1"
+arch = "neutral"
+os_min = "10.0.28000"
+os_max = "10.0.28000"
+profiles = ["recommended", "gaming"]
+order = 201
+homepage = "https://learn.microsoft.com/dotnet/framework/install/dotnet-35-windows-11"
+notes = '''
+From Windows 11 26H1 (build 28000) .NET Framework 3.5 is no longer a Windows component and
+ships only as a standalone installer; Microsoft says the installer works ONLY on the Windows
+version it is published for, so os_min = os_max = 10.0.28000 (compared without UBR). Add a new
+entry when Microsoft publishes an installer for a later Windows release. On 25H2 and older,
+netfx-35 (DISM NetFx3) is used instead.
+Download: go.microsoft.com/fwlink/?LinkID=2337635 -> download.microsoft.com/.../DotNet35Setup.exe
+(link on the Learn page "Install .NET Framework 3.5 on Windows 11"). The optional language pack
+(fwlink 2347312, DotNet35LPSetup.exe) is not included.
+Evergreen: on 2026-10-10 the fwlink served "Microsoft .NET Framework 3.5 (5087077)", file version
+1.0.03391.144, i.e. KB5087077, the 2026-05-12 cumulative update that "delivers the full .NET
+Framework 3.5 product as a standalone installer". Microsoft moves the link to newer cumulative
+builds, so the signature is checked instead of a hash. After install Microsoft Update services
+it, so no min_version.
+Installer: WiX Burn bundle (.wixburn section). The FAQ documents /q and /quiet; /norestart and
+/log are Burn's standard switches (without /norestart a quiet Burn bundle may restart by itself).
+Exit codes are not documented beyond Burn's 0 / 3010 / 1641, so the defaults are kept.
+The install does not survive a Windows feature upgrade (FAQ); detection then shows it missing.
+Detection: HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5 Install REG_DWORD = 1 (Microsoft
+Learn, "Detect .NET Framework 1.0 through 4.0"). The DISM feature does not exist on 26H1, so the
+registry rule is used. Not verified with a real install yet (needs a 26H1 machine or VM).
+Support ends 2029-01-09 (FAQ, Microsoft .NET Framework lifecycle).
+Sources: learn.microsoft.com/dotnet/framework/install/dotnet-35-windows-11
+         learn.microsoft.com/dotnet/framework/install/dotnet-35-windows-11-faq
+         learn.microsoft.com/dotnet/framework/install/how-to-determine-which-versions-are-installed
+         support.microsoft.com/kb/5087077
+         devblogs.microsoft.com/dotnet/dotnet-framework-3-5-moves-to-standalone-deployment-in-new-versions-of-windows
+'''
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?LinkID=2337635"
+filename = "dotnet35setup-win11-26h1.exe"
+size = 105310344
+evergreen = true
+signer = ["Microsoft Corporation"]
+
+[package.install]
+kind = "exe"
+args = '/quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5'
+view = "64"
+value = "Install"
+equals = 1
+
+[[package]]
+id = "netfx-48"
+name = ".NET Framework 4.8"
+description = { en = "Apps built for .NET Framework 4.8 need it on Windows 10 1809, which ships with 4.7.2 and cannot take 4.8.1.", tr = ".NET Framework 4.8 için yazılmış uygulamalar, 4.7.2 ile gelen ve 4.8.1 kurulamayan Windows 10 1809'da buna ihtiyaç duyar." }
+version = "4.8"
+arch = "neutral"
+os_min = "10.0.17763"
+os_max = "10.0.17763"
+profiles = ["recommended"]
+order = 202
+homepage = "https://dotnet.microsoft.com/download/dotnet-framework/net48"
+notes = '''
+Only offered on Windows 10 1809 / Server 2019 (build 17763): it ships with 4.7.2 and cannot take 4.8.1.
+1903, 1909 and 2004 (18362-19041) ship with 4.8 and cannot take 4.8.1 either, so nothing is offered
+there; 20H2+ (19042+) gets netfx-481. os_max is compared without UBR, so 10.0.17763.x matches.
+Offline installer NDP48-x86-x64-AllOS-ENU.exe from fwlink 2088631 (linked from the official
+offline-installer thank-you page). Switches /q /norestart /log <file>; return codes 0, 1602 cancel,
+1603 fatal, 1641/3010 restart, 5100 system requirements not met.
+Detection: Release >= 528040 is "4.8 or later" (Microsoft's minimum-version table).
+Sources: dotnet.microsoft.com/download/dotnet-framework/thank-you/net48-offline-installer
+         learn.microsoft.com/dotnet/framework/get-started/system-requirements
+         learn.microsoft.com/dotnet/framework/deployment/deployment-guide-for-developers
+         learn.microsoft.com/dotnet/framework/install/how-to-determine-which-versions-are-installed
+'''
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2088631"
+filename = "ndp48-x86-x64-allos-enu.exe"
+size = 121346568
+evergreen = false
+signer = ["Microsoft Corporation"]
+sha256 = "0a3a390c47e639d0f7fc65b21195fee6b7f65b066f80f70c60fab191d14b7e40"
+
+[package.install]
+kind = "exe"
+args = '/q /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full'
+view = "64"
+value = "Release"
+min_dword = 528040
+
+[[package]]
+id = "netfx-481"
+name = ".NET Framework 4.8.1"
+description = { en = "Desktop apps built for .NET Framework 4.x run on this version; Windows 11 22H2 and later already include it.", tr = ".NET Framework 4.x için yazılmış masaüstü uygulamaları bu sürümle çalışır; Windows 11 22H2 ve sonrasında zaten yüklüdür." }
+version = "4.8.1"
+arch = "neutral"
+os_min = "10.0.19042"
+profiles = ["recommended"]
+order = 203
+homepage = "https://dotnet.microsoft.com/download/dotnet-framework/net481"
+notes = '''
+Installable on Windows 10 20H2/21H1/21H2/22H2 (19042-19045), Windows 11 21H2 and Server 2022;
+built into Windows 11 22H2 and later (Release 533320) and Server 2025. Not installable on
+Windows 10 2004 or older, hence os_min 10.0.19042.
+Offline installer NDP481-x86-x64-AllOS-ENU.exe from fwlink 2203305 (linked from the official
+offline-installer thank-you page). Native Arm64 support is Windows 11 only (KB5011048).
+Switches /q /norestart /log <file> (deployment guide); return codes 0, 1602 cancel, 1603 fatal, 1641/3010 restart,
+5100 system requirements not met.
+Detection: Release >= 533320 ("4.8.1 or later"; 533325 when installed separately,
+533509 on Windows 11 24H2+).
+Sources: dotnet.microsoft.com/download/dotnet-framework/thank-you/net481-offline-installer
+         learn.microsoft.com/dotnet/framework/get-started/system-requirements
+         learn.microsoft.com/dotnet/framework/deployment/deployment-guide-for-developers
+         learn.microsoft.com/dotnet/framework/install/how-to-determine-which-versions-are-installed
+         support.microsoft.com/help/5011048
+'''
+
+[package.source]
+url = "https://go.microsoft.com/fwlink/?linkid=2203305"
+filename = "ndp481-x86-x64-allos-enu.exe"
+size = 77688504
+evergreen = false
+signer = ["Microsoft Corporation"]
+sha256 = "c0ca2e0c9cd18a24a0a77369a13fae2c2c4e8bc83355dd24e5ddc00f9d791fe3"
+
+[package.install]
+kind = "exe"
+args = '/q /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 1800
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full'
+view = "64"
+value = "Release"
+min_dword = 533320
+
+[[package]]
+id = "dotnet-desktop-3-1-x86"
+name = ".NET Core 3.1 Desktop Runtime (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET Core 3.1 need this runtime; it also includes the base .NET runtime.", tr = ".NET Core 3.1 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "3.1.32"
+arch = "x86"
+profiles = ["legacy"]
+order = 210
+group = "dotnet-desktop-3-1"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/3.1"
+notes = '''
+End of support 2022-12-13; 3.1.32 is the final build. aka.ms/dotnet/3.1/... no longer resolves (redirects to Bing),
+so the pinned URL from the official 3.1 releases.json is used. Fallback: the same file under
+builds.dotnet.microsoft.com/dotnet/Runtime/3.1.32/ (the URL winget-pkgs uses; same size and SHA256).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/3.1/releases.json (windowsdesktop 3.1.32, rid win-x86).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/3.1,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.3_1
+'''
+
+[package.source]
+url = "https://download.visualstudio.microsoft.com/download/pr/3f353d2c-0431-48c5-bdf6-fbbe8f901bb5/542a4af07c1df5136a98a1c2df6f3d62/windowsdesktop-runtime-3.1.32-win-x86.exe"
+fallback_urls = ["https://builds.dotnet.microsoft.com/dotnet/Runtime/3.1.32/windowsdesktop-runtime-3.1.32-win-x86.exe"]
+filename = "windowsdesktop-runtime-3.1.32-win-x86.exe"
+size = 49125288
+signer = ["Microsoft Corporation"]
+sha256 = "765436d4aa3de87af8b390d1cd16fce94c5f72dd04173adbb49c940b98b47704"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "3.1."
+min_version = "3.1.32"
+
+[[package]]
+id = "dotnet-desktop-3-1-x64"
+name = ".NET Core 3.1 Desktop Runtime (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET Core 3.1 need this runtime; it also includes the base .NET runtime.", tr = ".NET Core 3.1 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "3.1.32"
+arch = "x64"
+profiles = ["legacy"]
+order = 211
+group = "dotnet-desktop-3-1"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/3.1"
+notes = '''
+End of support 2022-12-13; 3.1.32 is the final build. aka.ms/dotnet/3.1/... no longer resolves (redirects to Bing),
+so the pinned URL from the official 3.1 releases.json is used. Fallback: the same file under
+builds.dotnet.microsoft.com/dotnet/Runtime/3.1.32/ (the URL winget-pkgs uses; same size and SHA256).
+The x64 build is supported under x64 emulation on Arm64 Windows (dotnet/designs x64-emulation, update 2021-09-23).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/3.1/releases.json (windowsdesktop 3.1.32, rid win-x64).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/3.1,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.3_1
+'''
+
+[package.source]
+url = "https://download.visualstudio.microsoft.com/download/pr/b92958c6-ae36-4efa-aafe-569fced953a5/1654639ef3b20eb576174c1cc200f33a/windowsdesktop-runtime-3.1.32-win-x64.exe"
+fallback_urls = ["https://builds.dotnet.microsoft.com/dotnet/Runtime/3.1.32/windowsdesktop-runtime-3.1.32-win-x64.exe"]
+filename = "windowsdesktop-runtime-3.1.32-win-x64.exe"
+size = 54712856
+signer = ["Microsoft Corporation"]
+sha256 = "22f4050ae4b6cdfd109f229f7f7a56f3b3afde00f592babfe890177c76ad8e40"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "3.1."
+min_version = "3.1.32"
+
+[[package]]
+id = "dotnet-desktop-5-x86"
+name = ".NET Desktop Runtime 5 (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET 5 need this runtime; it also includes the base .NET runtime.", tr = ".NET 5 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "5.0.17"
+arch = "x86"
+profiles = ["legacy"]
+order = 212
+group = "dotnet-desktop-5"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/5.0"
+notes = '''
+End of support 2022-05-10; 5.0.17 is the final build (pinned URL from the official 5.0 releases.json).
+aka.ms/dotnet/5.0/windowsdesktop-runtime-win-<arch>.exe still redirects to this same build (2026-10-10).
+The x64 build is supported under x64 emulation on Arm64 Windows (dotnet/designs x64-emulation, update 2021-09-23).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/5.0/releases.json (windowsdesktop 5.0.17, rid win-x86).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/5.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.5
+'''
+
+[package.source]
+url = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/5.0.17/windowsdesktop-runtime-5.0.17-win-x86.exe"
+filename = "windowsdesktop-runtime-5.0.17-win-x86.exe"
+size = 49729032
+signer = ["Microsoft Corporation"]
+sha256 = "63fef76824c51df09ed6fc5b031796fad64435db0e72f1735021b55760360c98"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "5."
+min_version = "5.0.17"
+
+[[package]]
+id = "dotnet-desktop-5-x64"
+name = ".NET Desktop Runtime 5 (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET 5 need this runtime; it also includes the base .NET runtime.", tr = ".NET 5 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "5.0.17"
+arch = "x64"
+profiles = ["legacy"]
+order = 213
+group = "dotnet-desktop-5"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/5.0"
+notes = '''
+End of support 2022-05-10; 5.0.17 is the final build (pinned URL from the official 5.0 releases.json).
+aka.ms/dotnet/5.0/windowsdesktop-runtime-win-<arch>.exe still redirects to this same build (2026-10-10).
+The x64 build is supported under x64 emulation on Arm64 Windows (dotnet/designs x64-emulation, update 2021-09-23).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/5.0/releases.json (windowsdesktop 5.0.17, rid win-x64).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/5.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.5
+'''
+
+[package.source]
+url = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/5.0.17/windowsdesktop-runtime-5.0.17-win-x64.exe"
+filename = "windowsdesktop-runtime-5.0.17-win-x64.exe"
+size = 55338488
+signer = ["Microsoft Corporation"]
+sha256 = "925cc68a346cf5692fc1b52f498db32edd278ade3f4331539b7914e23f3af417"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "5."
+min_version = "5.0.17"
+
+[[package]]
+id = "dotnet-desktop-6-x86"
+name = ".NET Desktop Runtime 6 (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET 6 need this runtime; it also includes the base .NET runtime.", tr = ".NET 6 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "6.0.36"
+arch = "x86"
+profiles = ["gaming", "legacy"]
+order = 214
+group = "dotnet-desktop-6"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/6.0"
+notes = '''
+End of support 2024-11-12; 6.0.36 is the final build (pinned URL from the official 6.0 releases.json).
+aka.ms/dotnet/6.0/windowsdesktop-runtime-win-<arch>.exe still redirects to this same build (2026-10-10).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/6.0/releases.json (windowsdesktop 6.0.36, rid win-x86).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Signer: CN=.NET, O=Microsoft Corporation (Microsoft Code Signing PCA 2024, Microsoft Root CA 2011).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/6.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.6
+'''
+
+[package.source]
+url = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/6.0.36/windowsdesktop-runtime-6.0.36-win-x86.exe"
+filename = "windowsdesktop-runtime-6.0.36-win-x86.exe"
+size = 52173224
+signer = [".NET"]
+sha256 = "4e77bd970df0a06528ee88d33e4a8c9fb85beedbdd7219b017083acf0c3aa39e"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "6."
+min_version = "6.0.36"
+
+[[package]]
+id = "dotnet-desktop-6-x64"
+name = ".NET Desktop Runtime 6 (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET 6 need this runtime; it also includes the base .NET runtime.", tr = ".NET 6 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "6.0.36"
+arch = "x64"
+profiles = ["gaming", "legacy"]
+order = 215
+group = "dotnet-desktop-6"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/6.0"
+notes = '''
+End of support 2024-11-12; 6.0.36 is the final build (pinned URL from the official 6.0 releases.json).
+aka.ms/dotnet/6.0/windowsdesktop-runtime-win-<arch>.exe still redirects to this same build (2026-10-10).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/6.0/releases.json (windowsdesktop 6.0.36, rid win-x64).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Signer: CN=.NET, O=Microsoft Corporation (Microsoft Code Signing PCA 2024, Microsoft Root CA 2011).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/6.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.6
+'''
+
+[package.source]
+url = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/6.0.36/windowsdesktop-runtime-6.0.36-win-x64.exe"
+filename = "windowsdesktop-runtime-6.0.36-win-x64.exe"
+size = 57380656
+signer = [".NET"]
+sha256 = "0d20debb26fc8b2bc84f25fbd9d4596a6364af8517ebf012e8b871127b798941"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "6."
+min_version = "6.0.36"
+
+[[package]]
+id = "dotnet-desktop-7-x86"
+name = ".NET Desktop Runtime 7 (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET 7 need this runtime; it also includes the base .NET runtime.", tr = ".NET 7 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "7.0.20"
+arch = "x86"
+profiles = ["gaming", "legacy"]
+order = 216
+group = "dotnet-desktop-7"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/7.0"
+notes = '''
+End of support 2024-05-14; 7.0.20 is the final build (pinned URL from the official 7.0 releases.json).
+aka.ms/dotnet/7.0/windowsdesktop-runtime-win-<arch>.exe still redirects to this same build (2026-10-10).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/7.0/releases.json (windowsdesktop 7.0.20, rid win-x86).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Signer: CN=.NET, O=Microsoft Corporation (Microsoft Code Signing PCA 2024, Microsoft Root CA 2011).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/7.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.7
+'''
+
+[package.source]
+url = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/7.0.20/windowsdesktop-runtime-7.0.20-win-x86.exe"
+filename = "windowsdesktop-runtime-7.0.20-win-x86.exe"
+size = 53193856
+signer = [".NET"]
+sha256 = "58d32d9857bda5da99afc217669aedacdffb20aed61f15315718eeb3a455b273"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "7."
+min_version = "7.0.20"
+
+[[package]]
+id = "dotnet-desktop-7-x64"
+name = ".NET Desktop Runtime 7 (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET 7 need this runtime; it also includes the base .NET runtime.", tr = ".NET 7 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "7.0.20"
+arch = "x64"
+profiles = ["gaming", "legacy"]
+order = 217
+group = "dotnet-desktop-7"
+legacy = true
+warning = { en = "Microsoft no longer supports this version and it gets no security updates. Install it only for apps that need it.", tr = "Microsoft bu sürümü artık desteklemiyor ve güvenlik güncellemesi almıyor. Yalnızca buna ihtiyaç duyan uygulamalar için kurun." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/7.0"
+notes = '''
+End of support 2024-05-14; 7.0.20 is the final build (pinned URL from the official 7.0 releases.json).
+aka.ms/dotnet/7.0/windowsdesktop-runtime-win-<arch>.exe still redirects to this same build (2026-10-10).
+Source: builds.dotnet.microsoft.com/dotnet/release-metadata/7.0/releases.json (windowsdesktop 7.0.20, rid win-x64).
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Signer: CN=.NET, O=Microsoft Corporation (Microsoft Code Signing PCA 2024, Microsoft Root CA 2011).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/7.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.7
+'''
+
+[package.source]
+url = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/7.0.20/windowsdesktop-runtime-7.0.20-win-x64.exe"
+filename = "windowsdesktop-runtime-7.0.20-win-x64.exe"
+size = 58011208
+signer = [".NET"]
+sha256 = "57e7c16e7226c9a29dbc3faedd9e5876cec494c7660528052f52160521e7b714"
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "7."
+min_version = "7.0.20"
+
+[[package]]
+id = "dotnet-desktop-8-x86"
+name = ".NET Desktop Runtime 8 (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET 8 need this runtime; it also includes the base .NET runtime.", tr = ".NET 8 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "8.0 (latest patch)"
+arch = "x86"
+profiles = ["recommended"]
+order = 220
+group = "dotnet-desktop-8"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/8.0"
+notes = '''
+LTS, end of support 2026-11-10 (releases-index.json). Evergreen aka.ms link; on 2026-10-08 it served 8.0.31
+(release 2026-09-08), so min_version = 8.0.31. Bump min_version on each Patch Tuesday refresh.
+Source: aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x86.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/8.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.8
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x86.exe"
+filename = "windowsdesktop-runtime-8-win-x86.exe"
+size = 53761616
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "8."
+min_version = "8.0.31"
+
+[[package]]
+id = "dotnet-desktop-8-x64"
+name = ".NET Desktop Runtime 8 (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET 8 need this runtime; it also includes the base .NET runtime.", tr = ".NET 8 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "8.0 (latest patch)"
+arch = "x64"
+profiles = ["recommended"]
+order = 221
+group = "dotnet-desktop-8"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/8.0"
+notes = '''
+LTS, end of support 2026-11-10 (releases-index.json). Evergreen aka.ms link; on 2026-10-08 it served 8.0.31
+(release 2026-09-08), so min_version = 8.0.31. Bump min_version on each Patch Tuesday refresh.
+Source: aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/8.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.8
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
+filename = "windowsdesktop-runtime-8-win-x64.exe"
+size = 58715896
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "8."
+min_version = "8.0.31"
+
+[[package]]
+id = "dotnet-desktop-8-arm64"
+name = ".NET Desktop Runtime 8 (arm64)"
+description = { en = "Native Arm64 Windows Forms and WPF apps built for .NET 8 need this runtime; it also includes the base .NET runtime.", tr = ".NET 8 ile yazılmış Arm64 için yerel Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "8.0 (latest patch)"
+arch = "arm64"
+profiles = ["recommended"]
+order = 222
+group = "dotnet-desktop-8"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/8.0"
+notes = '''
+LTS, end of support 2026-11-10 (releases-index.json). Evergreen aka.ms link; on 2026-10-08 it served 8.0.31
+(release 2026-09-08), so min_version = 8.0.31. Bump min_version on each Patch Tuesday refresh.
+Source: aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/8.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.8
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe"
+filename = "windowsdesktop-runtime-8-win-arm64.exe"
+size = 54190552
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\arm64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "8."
+min_version = "8.0.31"
+
+[[package]]
+id = "dotnet-desktop-9-x86"
+name = ".NET Desktop Runtime 9 (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET 9 need this runtime; it also includes the base .NET runtime.", tr = ".NET 9 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "9.0 (latest patch)"
+arch = "x86"
+profiles = ["recommended"]
+order = 223
+group = "dotnet-desktop-9"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/9.0"
+notes = '''
+STS (extended to 24 months), end of support 2026-11-10 (releases-index.json). Evergreen aka.ms link; on 2026-10-08
+it served 9.0.20, so min_version = 9.0.20. After 2026-11-10 mark legacy and pin the final build.
+Source: aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x86.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/9.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.9
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x86.exe"
+filename = "windowsdesktop-runtime-9-win-x86.exe"
+size = 55601280
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "9."
+min_version = "9.0.20"
+
+[[package]]
+id = "dotnet-desktop-9-x64"
+name = ".NET Desktop Runtime 9 (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET 9 need this runtime; it also includes the base .NET runtime.", tr = ".NET 9 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "9.0 (latest patch)"
+arch = "x64"
+profiles = ["recommended"]
+order = 224
+group = "dotnet-desktop-9"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/9.0"
+notes = '''
+STS (extended to 24 months), end of support 2026-11-10 (releases-index.json). Evergreen aka.ms link; on 2026-10-08
+it served 9.0.20, so min_version = 9.0.20. After 2026-11-10 mark legacy and pin the final build.
+Source: aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/9.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.9
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x64.exe"
+filename = "windowsdesktop-runtime-9-win-x64.exe"
+size = 60851384
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "9."
+min_version = "9.0.20"
+
+[[package]]
+id = "dotnet-desktop-9-arm64"
+name = ".NET Desktop Runtime 9 (arm64)"
+description = { en = "Native Arm64 Windows Forms and WPF apps built for .NET 9 need this runtime; it also includes the base .NET runtime.", tr = ".NET 9 ile yazılmış Arm64 için yerel Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "9.0 (latest patch)"
+arch = "arm64"
+profiles = ["recommended"]
+order = 225
+group = "dotnet-desktop-9"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/9.0"
+notes = '''
+STS (extended to 24 months), end of support 2026-11-10 (releases-index.json). Evergreen aka.ms link; on 2026-10-08
+it served 9.0.20, so min_version = 9.0.20. After 2026-11-10 mark legacy and pin the final build.
+Source: aka.ms/dotnet/9.0/windowsdesktop-runtime-win-arm64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/9.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.9
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-arm64.exe"
+filename = "windowsdesktop-runtime-9-win-arm64.exe"
+size = 56238192
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\arm64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "9."
+min_version = "9.0.20"
+
+[[package]]
+id = "dotnet-desktop-10-x86"
+name = ".NET Desktop Runtime 10 (x86)"
+description = { en = "32-bit Windows Forms and WPF apps built for .NET 10 need this runtime; it also includes the base .NET runtime.", tr = ".NET 10 ile yazılmış 32 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "10.0 (latest patch)"
+arch = "x86"
+profiles = ["recommended"]
+order = 226
+group = "dotnet-desktop-10"
+homepage = "https://dotnet.microsoft.com/download/dotnet/10.0"
+notes = '''
+LTS, end of support 2028-11-14 (releases-index.json). Evergreen aka.ms link; on 2026-10-08 it served 10.0.12,
+so min_version = 10.0.12.
+Source: aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x86.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/10.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.10
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x86.exe"
+filename = "windowsdesktop-runtime-10-win-x86.exe"
+size = 55590080
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "10."
+min_version = "10.0.12"
+
+[[package]]
+id = "dotnet-desktop-10-x64"
+name = ".NET Desktop Runtime 10 (x64)"
+description = { en = "64-bit Windows Forms and WPF apps built for .NET 10 need this runtime; it also includes the base .NET runtime.", tr = ".NET 10 ile yazılmış 64 bit Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "10.0 (latest patch)"
+arch = "x64"
+profiles = ["recommended"]
+order = 227
+group = "dotnet-desktop-10"
+homepage = "https://dotnet.microsoft.com/download/dotnet/10.0"
+notes = '''
+LTS, end of support 2028-11-14 (releases-index.json). Evergreen aka.ms link; on 2026-10-08 it served 10.0.12,
+so min_version = 10.0.12.
+Source: aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/10.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.10
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe"
+filename = "windowsdesktop-runtime-10-win-x64.exe"
+size = 60032984
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "10."
+min_version = "10.0.12"
+
+[[package]]
+id = "dotnet-desktop-10-arm64"
+name = ".NET Desktop Runtime 10 (arm64)"
+description = { en = "Native Arm64 Windows Forms and WPF apps built for .NET 10 need this runtime; it also includes the base .NET runtime.", tr = ".NET 10 ile yazılmış Arm64 için yerel Windows Forms ve WPF uygulamaları bu çalışma zamanına ihtiyaç duyar; temel .NET çalışma zamanını da içerir." }
+version = "10.0 (latest patch)"
+arch = "arm64"
+profiles = ["recommended"]
+order = 228
+group = "dotnet-desktop-10"
+homepage = "https://dotnet.microsoft.com/download/dotnet/10.0"
+notes = '''
+LTS, end of support 2028-11-14 (releases-index.json). Evergreen aka.ms link; on 2026-10-08 it served 10.0.12,
+so min_version = 10.0.12.
+Source: aka.ms/dotnet/10.0/windowsdesktop-runtime-win-arm64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/WindowsDesktop/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; Microsoft Learn documents /install /quiet /norestart, exit 0 success
+and 3010 restart (winget: Silent /quiet, Custom /norestart, no extra return codes); /log <file> is Burn's standard log switch.
+The Desktop Runtime includes the base .NET Runtime (Microsoft.NETCore.App).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.WindowsDesktop.App,
+32-bit view, one REG_DWORD 1 named after each installed version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/10.0,
+         winget-pkgs Microsoft.DotNet.DesktopRuntime.10
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-arm64.exe"
+filename = "windowsdesktop-runtime-10-win-arm64.exe"
+size = 54031048
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\arm64\sharedfx\Microsoft.WindowsDesktop.App'
+view = "32"
+version_name_prefix = "10."
+min_version = "10.0.12"
+
+[[package]]
+id = "aspnetcore-8-x86"
+name = "ASP.NET Core Runtime 8 (x86)"
+description = { en = "32-bit web and server apps built on ASP.NET Core 8 need this runtime, together with the .NET runtime.", tr = "ASP.NET Core 8 ile yazılmış 32 bit web ve sunucu uygulamaları, .NET çalışma zamanıyla birlikte bu çalışma zamanına ihtiyaç duyar." }
+version = "8.0 (latest patch)"
+arch = "x86"
+profiles = ["developer"]
+order = 240
+depends = ["dotnet-desktop-8-x86"]
+group = "aspnetcore-8"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/8.0"
+notes = '''
+LTS, end of support 2026-11-10. On 2026-10-08 the aka.ms link served 8.0.31.
+Source: aka.ms/dotnet/8.0/aspnetcore-runtime-win-x86.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; /install /quiet /norestart, exit 0 success, 3010 restart; /log <file> is Burn's standard log switch.
+Per Microsoft Learn the ASP.NET Core Runtime installer does NOT include the .NET Runtime, so this
+package depends on the Desktop Runtime of the same major and arch (which does include it).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.AspNetCore.App,
+32-bit view, one REG_DWORD 1 per version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/8.0,
+         winget-pkgs Microsoft.DotNet.AspNetCore.8
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/8.0/aspnetcore-runtime-win-x86.exe"
+filename = "aspnetcore-runtime-8-win-x86.exe"
+size = 9730968
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.AspNetCore.App'
+view = "32"
+version_name_prefix = "8."
+min_version = "8.0.31"
+
+[[package]]
+id = "aspnetcore-8-x64"
+name = "ASP.NET Core Runtime 8 (x64)"
+description = { en = "64-bit web and server apps built on ASP.NET Core 8 need this runtime, together with the .NET runtime.", tr = "ASP.NET Core 8 ile yazılmış 64 bit web ve sunucu uygulamaları, .NET çalışma zamanıyla birlikte bu çalışma zamanına ihtiyaç duyar." }
+version = "8.0 (latest patch)"
+arch = "x64"
+profiles = ["developer"]
+order = 241
+depends = ["dotnet-desktop-8-x64"]
+group = "aspnetcore-8"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/8.0"
+notes = '''
+LTS, end of support 2026-11-10. On 2026-10-08 the aka.ms link served 8.0.31.
+Source: aka.ms/dotnet/8.0/aspnetcore-runtime-win-x64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; /install /quiet /norestart, exit 0 success, 3010 restart; /log <file> is Burn's standard log switch.
+Per Microsoft Learn the ASP.NET Core Runtime installer does NOT include the .NET Runtime, so this
+package depends on the Desktop Runtime of the same major and arch (which does include it).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.AspNetCore.App,
+32-bit view, one REG_DWORD 1 per version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/8.0,
+         winget-pkgs Microsoft.DotNet.AspNetCore.8
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/8.0/aspnetcore-runtime-win-x64.exe"
+filename = "aspnetcore-runtime-8-win-x64.exe"
+size = 10505248
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.AspNetCore.App'
+view = "32"
+version_name_prefix = "8."
+min_version = "8.0.31"
+
+[[package]]
+id = "aspnetcore-9-x86"
+name = "ASP.NET Core Runtime 9 (x86)"
+description = { en = "32-bit web and server apps built on ASP.NET Core 9 need this runtime, together with the .NET runtime.", tr = "ASP.NET Core 9 ile yazılmış 32 bit web ve sunucu uygulamaları, .NET çalışma zamanıyla birlikte bu çalışma zamanına ihtiyaç duyar." }
+version = "9.0 (latest patch)"
+arch = "x86"
+profiles = ["developer"]
+order = 242
+depends = ["dotnet-desktop-9-x86"]
+group = "aspnetcore-9"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/9.0"
+notes = '''
+STS, end of support 2026-11-10. On 2026-10-08 the aka.ms link served 9.0.20.
+Source: aka.ms/dotnet/9.0/aspnetcore-runtime-win-x86.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; /install /quiet /norestart, exit 0 success, 3010 restart; /log <file> is Burn's standard log switch.
+Per Microsoft Learn the ASP.NET Core Runtime installer does NOT include the .NET Runtime, so this
+package depends on the Desktop Runtime of the same major and arch (which does include it).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.AspNetCore.App,
+32-bit view, one REG_DWORD 1 per version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/9.0,
+         winget-pkgs Microsoft.DotNet.AspNetCore.9
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/9.0/aspnetcore-runtime-win-x86.exe"
+filename = "aspnetcore-runtime-9-win-x86.exe"
+size = 9893888
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.AspNetCore.App'
+view = "32"
+version_name_prefix = "9."
+min_version = "9.0.20"
+
+[[package]]
+id = "aspnetcore-9-x64"
+name = "ASP.NET Core Runtime 9 (x64)"
+description = { en = "64-bit web and server apps built on ASP.NET Core 9 need this runtime, together with the .NET runtime.", tr = "ASP.NET Core 9 ile yazılmış 64 bit web ve sunucu uygulamaları, .NET çalışma zamanıyla birlikte bu çalışma zamanına ihtiyaç duyar." }
+version = "9.0 (latest patch)"
+arch = "x64"
+profiles = ["developer"]
+order = 243
+depends = ["dotnet-desktop-9-x64"]
+group = "aspnetcore-9"
+warning = { en = "Microsoft support for this version ends on 10 November 2026.", tr = "Microsoft bu sürümün desteğini 10 Kasım 2026'da sonlandırıyor." }
+homepage = "https://dotnet.microsoft.com/download/dotnet/9.0"
+notes = '''
+STS, end of support 2026-11-10. On 2026-10-08 the aka.ms link served 9.0.20.
+Source: aka.ms/dotnet/9.0/aspnetcore-runtime-win-x64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; /install /quiet /norestart, exit 0 success, 3010 restart; /log <file> is Burn's standard log switch.
+Per Microsoft Learn the ASP.NET Core Runtime installer does NOT include the .NET Runtime, so this
+package depends on the Desktop Runtime of the same major and arch (which does include it).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.AspNetCore.App,
+32-bit view, one REG_DWORD 1 per version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/9.0,
+         winget-pkgs Microsoft.DotNet.AspNetCore.9
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/9.0/aspnetcore-runtime-win-x64.exe"
+filename = "aspnetcore-runtime-9-win-x64.exe"
+size = 10679120
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.AspNetCore.App'
+view = "32"
+version_name_prefix = "9."
+min_version = "9.0.20"
+
+[[package]]
+id = "aspnetcore-10-x86"
+name = "ASP.NET Core Runtime 10 (x86)"
+description = { en = "32-bit web and server apps built on ASP.NET Core 10 need this runtime, together with the .NET runtime.", tr = "ASP.NET Core 10 ile yazılmış 32 bit web ve sunucu uygulamaları, .NET çalışma zamanıyla birlikte bu çalışma zamanına ihtiyaç duyar." }
+version = "10.0 (latest patch)"
+arch = "x86"
+profiles = ["developer"]
+order = 244
+depends = ["dotnet-desktop-10-x86"]
+group = "aspnetcore-10"
+homepage = "https://dotnet.microsoft.com/download/dotnet/10.0"
+notes = '''
+LTS, end of support 2028-11-14. On 2026-10-08 the aka.ms link served 10.0.12.
+Source: aka.ms/dotnet/10.0/aspnetcore-runtime-win-x86.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; /install /quiet /norestart, exit 0 success, 3010 restart; /log <file> is Burn's standard log switch.
+Per Microsoft Learn the ASP.NET Core Runtime installer does NOT include the .NET Runtime, so this
+package depends on the Desktop Runtime of the same major and arch (which does include it).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.AspNetCore.App,
+32-bit view, one REG_DWORD 1 per version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/10.0,
+         winget-pkgs Microsoft.DotNet.AspNetCore.10
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/10.0/aspnetcore-runtime-win-x86.exe"
+filename = "aspnetcore-runtime-10-win-x86.exe"
+size = 10748768
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.AspNetCore.App'
+view = "32"
+version_name_prefix = "10."
+min_version = "10.0.12"
+
+[[package]]
+id = "aspnetcore-10-x64"
+name = "ASP.NET Core Runtime 10 (x64)"
+description = { en = "64-bit web and server apps built on ASP.NET Core 10 need this runtime, together with the .NET runtime.", tr = "ASP.NET Core 10 ile yazılmış 64 bit web ve sunucu uygulamaları, .NET çalışma zamanıyla birlikte bu çalışma zamanına ihtiyaç duyar." }
+version = "10.0 (latest patch)"
+arch = "x64"
+profiles = ["developer"]
+order = 245
+depends = ["dotnet-desktop-10-x64"]
+group = "aspnetcore-10"
+homepage = "https://dotnet.microsoft.com/download/dotnet/10.0"
+notes = '''
+LTS, end of support 2028-11-14. On 2026-10-08 the aka.ms link served 10.0.12.
+Source: aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe (official latest-patch link,
+redirects to builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/<ver>/...).
+Signer: Microsoft signs these with CN=.NET or CN=Microsoft Corporation (both O=Microsoft Corporation,
+Microsoft Code Signing PCA 2024); on 2026-10-10 Desktop 8/9/10 and ASP.NET Core 10 used CN=.NET,
+ASP.NET Core 8/9 used CN=Microsoft Corporation, so both are accepted.
+Installer: WiX Burn bundle; /install /quiet /norestart, exit 0 success, 3010 restart; /log <file> is Burn's standard log switch.
+Per Microsoft Learn the ASP.NET Core Runtime installer does NOT include the .NET Runtime, so this
+package depends on the Desktop Runtime of the same major and arch (which does include it).
+Detection: HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>\sharedfx\Microsoft.AspNetCore.App,
+32-bit view, one REG_DWORD 1 per version.
+Sources: learn.microsoft.com/dotnet/core/install/windows, dotnet.microsoft.com/download/dotnet/10.0,
+         winget-pkgs Microsoft.DotNet.AspNetCore.10
+'''
+
+[package.source]
+url = "https://aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe"
+filename = "aspnetcore-runtime-10-win-x64.exe"
+size = 11262864
+evergreen = true
+signer = ["Microsoft Corporation", ".NET"]
+
+[package.install]
+kind = "exe"
+args = '/install /quiet /norestart /log "{log}"'
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.AspNetCore.App'
+view = "32"
+version_name_prefix = "10."
+min_version = "10.0.12"

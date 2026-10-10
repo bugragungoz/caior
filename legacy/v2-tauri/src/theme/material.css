@@ -1,0 +1,157 @@
+/* Material Design 3 - Static Color Palettes */
+/* Generated from Material Theme Builder: https://material-foundation.github.io/material-theme-builder/ */
+
+/* ─── Palette 1: Violet (default) — key #6750A4 ─── */
+.theme-violet {
+  --md-primary: #d0bcff;
+  --md-on-primary: #381e72;
+  --md-primary-container: #4f378b;
+  --md-on-primary-container: #eaddff;
+  --md-secondary: #ccc2dc;
+  --md-on-secondary: #332d41;
+  --md-secondary-container: #4a4458;
+  --md-on-secondary-container: #e8def8;
+  --md-tertiary: #efb8c8;
+  --md-on-tertiary: #492532;
+  --md-tertiary-container: #633b48;
+  --md-on-tertiary-container: #ffd8e4;
+  --md-error: #f2b8b5;
+  --md-on-error: #601410;
+  --md-error-container: #8c1d18;
+  --md-on-error-container: #f9dedc;
+  --md-surface: #141218;
+  --md-surface-dim: #141218;
+  --md-surface-bright: #3b383e;
+  --md-surface-container-lowest: #0f0d13;
+  --md-surface-container-low: #1d1b20;
+  --md-surface-container: #211f26;
+  --md-surface-container-high: #2b2930;
+  --md-surface-container-highest: #36343b;
+  --md-on-surface: #e6e1e5;
+  --md-on-surface-variant: #cac4d0;
+  --md-outline: #938f99;
+  --md-outline-variant: #49454f;
+  --md-inverse-surface: #e6e1e5;
+  --md-inverse-on-surface: #322f35;
+  --md-theme-dot: #d0bcff;
+}
+
+/* ─── Palette 2: Ocean — key #006399 ─── */
+.theme-ocean {
+  --md-primary: #90caff;
+  --md-on-primary: #003355;
+  --md-primary-container: #004a77;
+  --md-on-primary-container: #cbe6ff;
+  --md-secondary: #b9c8da;
+  --md-on-secondary: #233140;
+  --md-secondary-container: #394857;
+  --md-on-secondary-container: #d5e4f7;
+  --md-tertiary: #d0bde7;
+  --md-on-tertiary: #39294a;
+  --md-tertiary-container: #504062;
+  --md-on-tertiary-container: #ecddff;
+  --md-error: #f2b8b5;
+  --md-on-error: #601410;
+  --md-error-container: #8c1d18;
+  --md-on-error-container: #f9dedc;
+  --md-surface: #0f1417;
+  --md-surface-dim: #0f1417;
+  --md-surface-bright: #353c42;
+  --md-surface-container-lowest: #0a0f12;
+  --md-surface-container-low: #181d20;
+  --md-surface-container: #1c2124;
+  --md-surface-container-high: #262c2f;
+  --md-surface-container-highest: #313739;
+  --md-on-surface: #dee3e8;
+  --md-on-surface-variant: #bec8d3;
+  --md-outline: #88929d;
+  --md-outline-variant: #3e484f;
+  --md-inverse-surface: #dee3e8;
+  --md-inverse-on-surface: #2b3136;
+  --md-theme-dot: #90caff;
+}
+
+/* ─── Palette 3: Ember — key #C0392B ─── */
+.theme-ember {
+  --md-primary: #ffb4a9;
+  --md-on-primary: #680003;
+  --md-primary-container: #930006;
+  --md-on-primary-container: #ffdad5;
+  --md-secondary: #e7bdb7;
+  --md-on-secondary: #442926;
+  --md-secondary-container: #5d3f3b;
+  --md-on-secondary-container: #ffdad5;
+  --md-tertiary: #f0be73;
+  --md-on-tertiary: #432c00;
+  --md-tertiary-container: #5f4100;
+  --md-on-tertiary-container: #ffdea3;
+  --md-error: #f2b8b5;
+  --md-on-error: #601410;
+  --md-error-container: #8c1d18;
+  --md-on-error-container: #f9dedc;
+  --md-surface: #1a1110;
+  --md-surface-dim: #1a1110;
+  --md-surface-bright: #423331;
+  --md-surface-container-lowest: #140c0b;
+  --md-surface-container-low: #221918;
+  --md-surface-container: #271d1c;
+  --md-surface-container-high: #322826;
+  --md-surface-container-highest: #3d3231;
+  --md-on-surface: #f0dedd;
+  --md-on-surface-variant: #d8c2bf;
+  --md-outline: #a08c8a;
+  --md-outline-variant: #534341;
+  --md-inverse-surface: #f0dedd;
+  --md-inverse-on-surface: #382e2d;
+  --md-theme-dot: #ffb4a9;
+}
+
+/* ─── Palette 4: Forest — key #2E7D32 ─── */
+.theme-forest {
+  --md-primary: #78dc77;
+  --md-on-primary: #00390a;
+  --md-primary-container: #005315;
+  --md-on-primary-container: #93f990;
+  --md-secondary: #b8ccb4;
+  --md-on-secondary: #23361e;
+  --md-secondary-container: #394d33;
+  --md-on-secondary-container: #d4e8cf;
+  --md-tertiary: #a0cfcf;
+  --md-on-tertiary: #003737;
+  --md-tertiary-container: #1f4e4e;
+  --md-on-tertiary-container: #bceceb;
+  --md-error: #f2b8b5;
+  --md-on-error: #601410;
+  --md-error-container: #8c1d18;
+  --md-on-error-container: #f9dedc;
+  --md-surface: #101510;
+  --md-surface-dim: #101510;
+  --md-surface-bright: #353b34;
+  --md-surface-container-lowest: #0b100b;
+  --md-surface-container-low: #181d18;
+  --md-surface-container: #1c221c;
+  --md-surface-container-high: #272d26;
+  --md-surface-container-highest: #313831;
+  --md-on-surface: #dfe4dc;
+  --md-on-surface-variant: #bec9b9;
+  --md-outline: #889083;
+  --md-outline-variant: #3e4a3c;
+  --md-inverse-surface: #dfe4dc;
+  --md-inverse-on-surface: #2d332d;
+  --md-theme-dot: #78dc77;
+}
+
+/* ─── Material Symbols helper ─── */
+.material-symbols-rounded {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+.material-symbols-rounded.filled {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.material-symbols-rounded.sz-18 { font-size: 18px; }
+.material-symbols-rounded.sz-24 { font-size: 24px; }

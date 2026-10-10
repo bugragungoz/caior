@@ -1,0 +1,227 @@
+# Developer runtimes: optional language runtimes, preselected only by the "developer" profile.
+# Both products are pinned (no vendor-patched evergreen link exists): bump the version, URL,
+# filename, detect key/min_version and run `xtask catalog refresh --force --id <id>` on update.
+
+[category]
+id = "developer"
+name = { en = "Developer runtimes", tr = "Geliştirici çalışma ortamları" }
+description = { en = "Optional language runtimes for writing and running code. Everyday apps and games do not need them.", tr = "Kod yazmak ve çalıştırmak için isteğe bağlı programlama dili ortamları. Günlük uygulamalar ve oyunlar bunlara ihtiyaç duymaz." }
+order = 70
+icon = "terminal"
+
+# ---------------------------------------------------------------------------
+# Python 3 (newest stable: 3.15.0, 2026-10-09, 'Latest Python 3 Release' on python.org)
+# ---------------------------------------------------------------------------
+
+[[package]]
+id = "python-3-x64"
+name = "Python 3.15 (x64)"
+description = { en = "Optional developer tool, needed to run and write Python scripts and apps; installs Python 3.15 with pip for all users.", tr = "İsteğe bağlı geliştirici aracı; Python betiklerini ve uygulamalarını çalıştırmak ve yazmak için gerekir, Python 3.15'i pip ile tüm kullanıcılar için kurar." }
+version = "3.15.0"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["developer"]
+order = 710
+group = "python-3"
+homepage = "https://www.python.org/"
+notes = """
+Sources: https://www.python.org/downloads/windows/ (3.15.0 is 'Latest Python 3 Release', 2026-10-09),
+https://www.python.org/downloads/release/python-3150/ ('Windows installer (64-bit)', Recommended, 43.3 MB,
+sha256 67d9a63e...d2d1f01d6f), https://docs.python.org/3.15/using/windows.html (4.1.10 'Advanced installation',
+4.5 'Python 3.15 supports Windows 10 and newer', 4.11 'The full installer (deprecated)'),
+winget-pkgs manifests/p/Python/Python/3/14/3.14.7 (Scope machine: Custom 'InstallAllUsers=1 PrependPath=1', burn;
+no 3.15 manifest yet on 2026-10-10). Pinned: python.org has no stable 'latest' link; pick the newest 3.x.y on update.
+Method: the classic full installer. It is deprecated since 3.14 and will not be produced for 3.16+, but it is the only
+official silent all-users method: the Python install manager (MSIX/MSI) 'does not support installing runtimes per-machine'
+and each user must install runtimes themselves, so it cannot be deployed silently by an elevated worker.
+Before 3.16 this package must move to another method (or py install --target as admin, which the docs call an emulation).
+Installer sources are unchanged from 3.14.8 (Tools/msi/bundle/bundle.wxs, bootstrap/PythonBootstrapperApplication.cpp,
+packagegroups/launcher.wxs, launcher/*.wxs are identical at tags v3.14.8 and v3.15.0).
+Args: /quiet + documented options; Include_test=0 follows the docs' system-wide example. Include_launcher=1 installs
+launcher.msi per-machine (py.exe in C:\\Windows); the 3.14 and 3.15 docs tables call this option 'Install Python
+install manager', but the v3.15.0 bundle still ships the legacy py.exe launcher MSI (packagegroups/launcher.wxs).
+Side effect (docs 4.1.9 note and Troubleshooting): the legacy launcher's py command takes priority over the Python
+install manager's py; install-manager users can remove 'Python Launcher' from Installed apps. Kept because it is the
+installer default and the docs' system-wide example keeps it (it also provides the .py file association).
+/norestart is the WiX Burn engine switch: without it PythonBA restarts the PC by itself in /quiet mode when a reboot
+is needed (OnApplyComplete/_allowRestart).
+1638 = ERROR_PRODUCT_VERSION, returned by PythonBA OnPlan when a newer 3.15.x is installed.
+Detect: PEP 514 key written by exe.msi (Tools/msi/exe/exe_reg.wxs: Version = LongVersion, REG_SZ, e.g. '3.15.0');
+x64 tag is plain '3.15' (PCbuild/python.props PyArchExt is empty for amd64), HKMU = HKLM for all-users installs.
+Limitation: a pre-release writes Version '3.15.0rcN' (LongVersion = PythonVersion), which the lenient version parser
+reads as 3.15.0, so an all-users 3.15.0 release candidate counts as installed.
+Confirmed on the dev host with 3.14: HKLM\\SOFTWARE\\Python\\PythonCore\\3.14 (64-bit view) Version REG_SZ '3.14.7'.
+Each minor version is side by side (own key, own Program Files\\Python3xx folder), so 3.13/3.14 do not count as 3.15.
+value = "Version" is required because other tools add subkeys under the same tag key (pywin32_postinstall.py writes
+HKLM ...\\PythonCore\\<winver>\\Help when run as admin), which can keep the key alive after Python is uninstalled.
+The burn bundle's own ARP entry is always per-user (HKCU of the elevating account; seen on the dev host), so an
+uninstall rule is not reliable; the HKLM PEP 514 key is. Per-user installs (HKCU) and install-manager runtimes
+(tag '3.15-64') are not counted, because this package installs for all users.
+Upgrades: an older 3.15.x shows as outdated; the bundle (UpgradeCode is per minor version) does a major upgrade and
+keeps the old TargetDir. PythonBA LoadOptionalFeatureStates reads HKCU before HKLM, so with an existing per-user 3.15
+install the upgrade may stay per-user and the HKLM key may not appear (not verified; Sandbox test).
+os_arch: offered on x64 Windows only; ARM64 Windows gets the native arm64 build (python-3-arm64).
+"""
+
+[package.source]
+url = "https://www.python.org/ftp/python/3.15.0/python-3.15.0-amd64.exe"
+filename = "python-3.15.0-amd64.exe"
+size = 45383680
+signer = ["Python Software Foundation"]
+sha256 = "67d9a63eb145a34aa939f02eadbf8c57f21fcdd6decb901ccac578d2d1f01d6f"
+
+[package.install]
+kind = "exe"
+args = "/quiet /norestart InstallAllUsers=1 PrependPath=1 Include_launcher=1 Include_test=0"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 1200
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Python\PythonCore\3.15'
+view = "64"
+value = "Version"
+version_value = "Version"
+min_version = "3.15.0"
+
+[[package]]
+id = "python-3-arm64"
+name = "Python 3.15 (ARM64)"
+description = { en = "Optional developer tool for Windows on ARM, needed to run and write Python scripts and apps; installs native Python 3.15 with pip for all users.", tr = "ARM tabanlı Windows için isteğe bağlı geliştirici aracı; Python betiklerini ve uygulamalarını çalıştırmak ve yazmak için gerekir, yerel Python 3.15'i pip ile tüm kullanıcılar için kurar." }
+version = "3.15.0"
+arch = "arm64"
+os_arch = ["arm64"]
+profiles = ["developer"]
+order = 711
+group = "python-3"
+homepage = "https://www.python.org/"
+notes = """
+Sources: https://www.python.org/downloads/windows/ (3.15.0 'Windows installer (ARM64)', 2026-10-09),
+https://www.python.org/downloads/release/python-3150/ (ARM64 installer, 42.6 MB, sha256 bb1c5123...ae487c4f),
+https://docs.python.org/3.15/using/windows.html (4.1.10, 4.11), winget-pkgs manifests/p/Python/Python/3/14/3.14.7
+(arm64, Scope machine, burn; no 3.15 manifest yet on 2026-10-10).
+Same method, switches and exit codes as python-3-x64 (see its notes): classic full installer, deprecated since 3.14,
+not produced for 3.16+, still the only official silent all-users method.
+Detect: PEP 514 tag for ARM64 builds is '3.15-arm64' (PCbuild/python.props at v3.15.0: PyArchExt = -arm64;
+Tools/msi/common.wxs REGISTRYKEY = Software\\Python\\PythonCore\\<ShortVersion><PyArchExt>), in the native (64) view.
+The docs agree (4.11.6: registered tags carry 'a -32 or -arm64 suffix as normal for those platforms').
+An x64 Python on ARM64 Windows writes '3.15' instead, so the two never collide.
+"""
+
+[package.source]
+url = "https://www.python.org/ftp/python/3.15.0/python-3.15.0-arm64.exe"
+filename = "python-3.15.0-arm64.exe"
+size = 44649344
+signer = ["Python Software Foundation"]
+sha256 = "bb1c5123cc63d7bb37962ea7bf65e2b06389be9e5d48b6b532346d42ae487c4f"
+
+[package.install]
+kind = "exe"
+args = "/quiet /norestart InstallAllUsers=1 PrependPath=1 Include_launcher=1 Include_test=0"
+success_codes = [0, 1638]
+reboot_codes = [3010, 1641]
+timeout_sec = 1200
+
+[package.detect]
+kind = "registry"
+hive = "HKLM"
+key = 'SOFTWARE\Python\PythonCore\3.15-arm64'
+view = "64"
+value = "Version"
+version_value = "Version"
+min_version = "3.15.0"
+
+# ---------------------------------------------------------------------------
+# Node.js LTS (newest LTS: 24.21.0 'Krypton', 2026-09-07; 26.x is still 'Current' until 2026-10-28)
+# ---------------------------------------------------------------------------
+
+[[package]]
+id = "nodejs-lts-x64"
+name = "Node.js 24 LTS (x64)"
+description = { en = "Optional developer tool, needed to run and build JavaScript tools and apps outside the browser; installs Node.js 24 LTS with npm.", tr = "İsteğe bağlı geliştirici aracı; tarayıcı dışında JavaScript araçlarını ve uygulamalarını çalıştırmak ve derlemek için gerekir, Node.js 24 LTS'yi npm ile kurar." }
+version = "24.21.0"
+arch = "x64"
+os_arch = ["x64"]
+profiles = ["developer"]
+order = 720
+group = "nodejs-lts"
+warning = { en = "Replaces an older Node.js installed with the official installer; only one version can be installed at a time.", tr = "Resmi kurulum programıyla kurulmuş eski bir Node.js sürümünün yerine geçer; aynı anda yalnızca bir sürüm kurulu olabilir." }
+homepage = "https://nodejs.org/"
+notes = """
+Sources: https://nodejs.org/dist/index.json (v24.21.0, lts 'Krypton', newest LTS on 2026-10-10),
+https://nodejs.org/dist/v24.21.0/SHASUMS256.txt (PGP-signed list; x64 msi sha256 bb0eaee1...2cac),
+https://github.com/nodejs/node/blob/v24.21.0/tools/msvs/msi/nodemsi/product.wxs,
+winget-pkgs manifests/o/OpenJS/NodeJS/LTS/24.20.0 (wix, Scope machine, no extra switches; 24.21.0 not in winget yet).
+https://github.com/nodejs/Release/blob/main/schedule.json: v26 becomes LTS on 2026-10-28 and v24 enters maintenance
+on 2026-10-20, so move this entry to the newest 26.x after 2026-10-28 (new id/name/version, same UpgradeCode).
+No evergreen link exists (nodejs.org/dist/latest-v24.x/ is a moving folder whose file name changes), so pinned.
+Install: plain msiexec /qn; the default feature set installs node, npm, corepack and adds PATH. The optional
+'native module tools' step (install_tools.bat, Chocolatey) only runs from the UI, never silently.
+Detect: UpgradeCode {47C07A3A-42EF-4213-A85D-8F5A59077C28} is fixed in product.wxs for every Node.js version and
+for both x64 and arm64; it is per-machine (WiX 4 Package default). Confirmed on the dev host
+(HKCR\\Installer\\UpgradeCodes\\A3A70C74FE2431248AD5F8A59570C782, Node.js 24.20.0 -> shows as outdated).
+MajorUpgrade replaces any older Node.js MSI install (e.g. 22.x) and refuses downgrades, hence the warning; a newer
+Node.js (e.g. 26 Current) satisfies min_version and is left alone. The rule cannot tell x64 from arm64 Node.js;
+os_arch keeps x64 off ARM64 Windows so only the native build is offered there.
+Node.js from a zip, a version manager (nvm-windows, fnm, Volta) or winget's portable package has no MSI entry and is
+not detected; installing then adds a second node.exe to PATH.
+"""
+
+[package.source]
+url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-x64.msi"
+filename = "node-v24.21.0-x64.msi"
+size = 33230848
+signer = ["OpenJS Foundation"]
+sha256 = "bb0eaee134f9357f22aea915ee793343e627aefc1e66488164bac6915bce2cac"
+
+[package.install]
+kind = "msi"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{47C07A3A-42EF-4213-A85D-8F5A59077C28}"
+min_version = "24.21.0"
+
+[[package]]
+id = "nodejs-lts-arm64"
+name = "Node.js 24 LTS (ARM64)"
+description = { en = "Optional developer tool for Windows on ARM, needed to run and build JavaScript tools and apps outside the browser; installs native Node.js 24 LTS with npm.", tr = "ARM tabanlı Windows için isteğe bağlı geliştirici aracı; tarayıcı dışında JavaScript araçlarını ve uygulamalarını çalıştırmak ve derlemek için gerekir, yerel Node.js 24 LTS'yi npm ile kurar." }
+version = "24.21.0"
+arch = "arm64"
+os_arch = ["arm64"]
+profiles = ["developer"]
+order = 721
+group = "nodejs-lts"
+warning = { en = "Replaces an older Node.js installed with the official installer; only one version can be installed at a time.", tr = "Resmi kurulum programıyla kurulmuş eski bir Node.js sürümünün yerine geçer; aynı anda yalnızca bir sürüm kurulu olabilir." }
+homepage = "https://nodejs.org/"
+notes = """
+Sources: https://nodejs.org/dist/index.json (v24.21.0 'Krypton'), https://nodejs.org/dist/v24.21.0/SHASUMS256.txt
+(arm64 msi sha256 22ca8511...49e3), tools/msvs/msi/nodemsi/product.wxs, winget-pkgs
+manifests/o/OpenJS/NodeJS/LTS/24.20.0 (arm64, wix, Scope machine). index.json's 'files' list omits 'win-arm64-msi',
+but the MSI is published in the release folder and in SHASUMS256.txt (refresh: valid OpenJS Foundation signature).
+Same install and detection as nodejs-lts-x64 (see its notes): the arm64 MSI uses the same UpgradeCode and the same
+C:\\Program Files\\nodejs folder, so it major-upgrades an x64 Node.js MSI on ARM64 Windows.
+"""
+
+[package.source]
+url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-arm64.msi"
+filename = "node-v24.21.0-arm64.msi"
+size = 29671424
+signer = ["OpenJS Foundation"]
+sha256 = "22ca85110f26015696a3fa9216bc372ae65203d170622eaf7d211e2dd5bb49e3"
+
+[package.install]
+kind = "msi"
+success_codes = [0]
+reboot_codes = [3010, 1641]
+timeout_sec = 900
+
+[package.detect]
+kind = "msi-product"
+upgrade_code = "{47C07A3A-42EF-4213-A85D-8F5A59077C28}"
+min_version = "24.21.0"
