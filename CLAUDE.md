@@ -15,5 +15,5 @@ Read `docs/PLAN.md` first; it holds the decisions, architecture and phase list. 
 - Every catalog entry needs a verified official URL, silent args checked against vendor docs, a detection rule, and either a SHA256 or a signer allowlist.
 - Docs are in Turkish; code, identifiers and comments are in English.
 - Test real installs only in Windows Sandbox or a VM, never on the host without asking.
-- Local git only. No remote until the user asks to publish.
+- Remote: github.com/bugragungoz/caior (public). Push and tag only when the user asks.
 - The user switches effort before coding phases; announce before starting a new phase.
