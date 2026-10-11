@@ -177,7 +177,20 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
         emit(Event::Skipped { id: s.id.clone(), reason: serde_json::to_string(&s.reason).unwrap_or_default() });
     }
 
-    let cache = Cache::new(&opts.cache_dir);
+    // An offline package next to (or inside) this exe serves as the cache.
+    // Anything it lacks is still downloaded when there is a connection.
+    let cache_dir = match crate::bundle::current() {
+        Some(b) => {
+            let dir = crate::bundle::cache_dir(&b, &opts.cache_dir);
+            let ids: Vec<String> = items.iter().map(|p| p.id.clone()).collect();
+            if let Err(e) = crate::bundle::prepare(&b, &ids, &dir) {
+                emit(Event::Failed { id: "offline-package".into(), error: e.to_string() });
+            }
+            dir
+        }
+        None => opts.cache_dir.clone(),
+    };
+    let cache = Cache::new(&cache_dir);
     let ctx = RunContext {
         log_dir: log_dir.clone(),
         work_dir: opts.cache_dir.join("_work"),

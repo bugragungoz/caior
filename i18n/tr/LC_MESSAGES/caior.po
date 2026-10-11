@@ -25,9 +25,6 @@ msgstr "İptal"
 msgid "Checking what is installed..."
 msgstr "Kurulu olanlar kontrol ediliyor..."
 
-msgid "Coming in the next version"
-msgstr "Sonraki sürümde geliyor"
-
 msgid "Custom"
 msgstr "Özel"
 
@@ -63,9 +60,6 @@ msgstr "Hepsi"
 
 msgid "Finished with errors"
 msgstr "Hatalarla bitti"
-
-msgid "For now, use Download only on the Install page; the files stay in the cache folder."
-msgstr "Şimdilik Kur sayfasındaki Sadece indir seçeneğini kullanın; dosyalar önbellek klasöründe kalır."
 
 msgid "Gaming"
 msgstr "Oyun"
@@ -186,3 +180,42 @@ msgstr "{} paket indirildi ve doğrulandı."
 
 msgid "{} selected, about {} MB to download"
 msgstr "{} seçili, yaklaşık {} MB indirilecek"
+
+msgid "Writing the offline package..."
+msgstr "Offline paket yazılıyor..."
+
+msgid "Offline package ready"
+msgstr "Offline paket hazır"
+
+msgid "{} packages in {}"
+msgstr "{} paket, {}"
+
+msgid "1. Packages"
+msgstr "1. Paketler"
+
+msgid "{} packages from the Install page selection, about {} MB. Packages already on this PC are included."
+msgstr "Kur sayfasındaki seçimden {} paket, yaklaşık {} MB. Bu bilgisayarda kurulu olanlar da pakete girer."
+
+msgid "2. Format"
+msgstr "2. Biçim"
+
+msgid "Single file (.exe)"
+msgstr "Tek dosya (.exe)"
+
+msgid "Folder"
+msgstr "Klasör"
+
+msgid "3. Destination"
+msgstr "3. Hedef"
+
+msgid "Create package"
+msgstr "Paketi oluştur"
+
+msgid "What is left out"
+msgstr "Pakete girmeyenler"
+
+msgid "Windows features (.NET 3.5, DirectPlay) come from Windows Update, and some packages may only be downloaded from their vendor. Both need internet on the target PC."
+msgstr "Windows özellikleri (.NET 3.5, DirectPlay) Windows Update üzerinden gelir, bazı paketler de sadece üreticisinden indirilebilir. İkisi de hedef bilgisayarda internet ister."
+
+msgid "Show in folder"
+msgstr "Klasörde göster"

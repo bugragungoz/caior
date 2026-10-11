@@ -1,5 +1,6 @@
 //! CAIOR core library. GUI-free so every part can be unit tested.
 
+pub mod bundle;
 pub mod catalog;
 pub mod detect;
 #[cfg(windows)]

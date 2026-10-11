@@ -61,6 +61,17 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Download and verify packages, then write an offline package (one exe or a folder).
+    Pack {
+        #[command(flatten)]
+        sel: install_cmd::SelectionArgs,
+        /// Output: the exe to write, or the folder with --folder.
+        #[arg(long)]
+        out: PathBuf,
+        /// Write caior.exe plus a caior-packages folder instead of one exe.
+        #[arg(long)]
+        folder: bool,
+    },
     /// Internal: the elevated half of `install`.
     #[command(hide = true)]
     Worker {
@@ -212,6 +223,10 @@ fn main() -> Result<()> {
         Some(Command::Fetch { ids, cache }) => fetch_cmd(&catalog, &ids, &cache),
         Some(Command::Install { sel, yes, silent, dry_run }) => {
             let code = install_cmd::install(&catalog, &sel, yes || silent, dry_run)?;
+            std::process::exit(code)
+        }
+        Some(Command::Pack { sel, out, folder }) => {
+            let code = install_cmd::pack(&catalog, &sel, &out, folder)?;
             std::process::exit(code)
         }
         Some(Command::Worker { pipe, cancel_file, sel }) => {

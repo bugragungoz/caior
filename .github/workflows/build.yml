@@ -1,0 +1,61 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+          rustc --version
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ hashFiles('Cargo.lock') }}
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Catalog check
+        run: cargo xtask catalog check --strict
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Build release
+        run: cargo build --release -p caior
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: caior
+          path: target/release/caior.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Copy-Item target/release/caior.exe caior.exe
+          $hash = (Get-FileHash caior.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  caior.exe" | Set-Content caior.exe.sha256 -NoNewline
+          $args = @($tag, "caior.exe", "caior.exe.sha256", "--title", "CAIOR $tag", "--generate-notes")
+          if ($tag -match "-") { $args += "--prerelease" }
+          gh release create @args

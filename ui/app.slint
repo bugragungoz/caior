@@ -1,7 +1,7 @@
 // CAIOR main window and the bottom-right progress card.
 // Layout and behavior: docs/DESIGN.md. Tokens: generated Theme global.
 
-import { ListView, ScrollView } from "std-widgets.slint";
+import { ListView, ScrollView, LineEdit } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { Icons, Icon, Button, ButtonKind, Chip, CheckBox, StatusLabel, ProgressBar, NavItem, Note } from "components.slint";
 
@@ -54,8 +54,13 @@ export global AppState {
     in property <bool> cancelled;
     in property <bool> declined;
     in property <bool> reboot-needed;
+    // Offline package run: download, then write the package to pack-result.
+    in property <bool> pack-mode;
+    in property <string> pack-result;
+    callback show-pack-result();
     out property <string> counter: total-count > 0 ? done-count + " / " + total-count : "";
-    out property <string> stage-text: stage == 1 ? @tr("Waiting for administrator approval...")
+    out property <string> stage-text: stage == 4 ? @tr("Writing the offline package...")
+        : stage == 1 ? @tr("Waiting for administrator approval...")
         : stage == 2 ? @tr("Downloading {}%", stage-percent)
         : stage == 3 ? @tr("Installing...")
         : @tr("Preparing...");
@@ -63,9 +68,11 @@ export global AppState {
     out property <string> summary-title: declined ? @tr("Nothing was installed")
         : cancelled ? @tr("Stopped")
         : failed-count > 0 ? @tr("Finished with errors")
+        : pack-mode ? @tr("Offline package ready")
         : download-only ? @tr("Download complete")
         : @tr("All done");
     out property <string> summary-body: declined ? @tr("Administrator approval was declined.")
+        : pack-mode && failed-count == 0 ? @tr("{} packages in {}", ok-count, pack-result)
         : download-only ? @tr("{} packages downloaded and verified.", ok-count)
         : failed-count > 0 ? @tr("{} installed, {} failed. See the logs for details.", ok-count, failed-count)
         : reboot-needed ? @tr("{} installed. Restart Windows to finish.", ok-count)
@@ -216,6 +223,10 @@ export component MainWindow inherits Window {
     in property <string> system-text;
     in property <int> selected-count;
     in property <int> selected-mb;
+    in property <int> pack-count;
+    in property <int> pack-mb;
+    in-out property <int> pack-format: 0; // 0 single exe, 1 folder
+    in-out property <string> pack-path;
     in property <bool> loading: true;
     in property <bool> can-install;
     in-out property <int> page: 0; // 0 install, 1 progress, 2 offline, 3 logs, 4 settings
@@ -233,6 +244,8 @@ export component MainWindow inherits Window {
     callback open-logs();
     callback back-to-list();
     callback set-theme(int);
+    callback set-pack-format(int);
+    callback create-package();
     callback set-language(int);
     // Invoked from Rust.
     callback detection-done();
@@ -372,7 +385,7 @@ export component MainWindow inherits Window {
                 }
             }
 
-            // Page 2: offline package (phase 6)
+            // Page 2: offline package
             if root.page == 2: VerticalLayout {
                 padding: Theme.space-6;
                 spacing: Theme.space-4;
@@ -384,9 +397,39 @@ export component MainWindow inherits Window {
                     font-size: Theme.type-lead-size;
                     wrap: word-wrap;
                 }
+                Text { text: @tr("1. Packages"); color: Theme.ink; font-weight: 600; }
+                Text {
+                    text: @tr("{} packages from the Install page selection, about {} MB. Packages already on this PC are included.", root.pack-count, root.pack-mb);
+                    color: Theme.muted;
+                    font-size: Theme.type-small-size;
+                    wrap: word-wrap;
+                }
+                Text { text: @tr("2. Format"); color: Theme.ink; font-weight: 600; }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    alignment: start;
+                    Chip { text: @tr("Single file (.exe)"); selected: root.pack-format == 0; clicked => { root.set-pack-format(0); } }
+                    Chip { text: @tr("Folder"); selected: root.pack-format == 1; clicked => { root.set-pack-format(1); } }
+                }
+                Text { text: @tr("3. Destination"); color: Theme.ink; font-weight: 600; }
+                LineEdit {
+                    text <=> root.pack-path;
+                    font-size: Theme.type-body-size;
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    padding-top: Theme.space-2;
+                    Button {
+                        text: @tr("Create package");
+                        icon: Icons.offline;
+                        has-icon: true;
+                        enabled: root.pack-count > 0 && !AppState.busy;
+                        clicked => { root.create-package(); }
+                    }
+                }
                 Note {
-                    title: @tr("Coming in the next version");
-                    body: @tr("For now, use Download only on the Install page; the files stay in the cache folder.");
+                    title: @tr("What is left out");
+                    body: @tr("Windows features (.NET 3.5, DirectPlay) come from Windows Update, and some packages may only be downloaded from their vendor. Both need internet on the target PC.");
                 }
             }
 
@@ -503,6 +546,13 @@ export component MainWindow inherits Window {
                     text: @tr("Cancel");
                     kind: ButtonKind.ghost;
                     clicked => { AppState.cancel(); }
+                }
+                if root.page == 1 && AppState.finished && AppState.pack-mode && AppState.failed-count == 0: Button {
+                    text: @tr("Show in folder");
+                    kind: ButtonKind.outline;
+                    icon: Icons.folder;
+                    has-icon: true;
+                    clicked => { AppState.show-pack-result(); }
                 }
                 if root.page == 1 && AppState.finished && AppState.reboot-needed: Button {
                     text: @tr("Restart now");

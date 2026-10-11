@@ -57,6 +57,8 @@ struct Gui {
     /// Package id of each list row; None for category headers.
     row_ids: Vec<Option<String>>,
     turkish: bool,
+    /// Chip index of the Install page (5 = custom selection).
+    profile: i32,
 }
 
 fn data_dir() -> PathBuf {
@@ -187,6 +189,37 @@ impl Gui {
             .collect();
     }
 
+    /// What an offline package gets: the whole profile (installed or not) plus
+    /// any extra picks, or just the picks for a custom selection.
+    fn pack_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = if (0..5).contains(&self.profile) {
+            match ProfileChoice::from_index(self.profile).profile() {
+                Some(p) => plan::profile_ids(&self.catalog, p, &self.sys),
+                None => plan::all_ids(&self.catalog, &self.sys),
+            }
+        } else {
+            Vec::new()
+        };
+        for id in &self.selected {
+            if !ids.contains(id) {
+                ids.push(id.clone());
+            }
+        }
+        ids.retain(|id| {
+            self.catalog
+                .package(id)
+                .and_then(|p| p.source.as_ref())
+                .is_some_and(|s| !s.online_only)
+        });
+        ids
+    }
+
+    fn pack_size(&self) -> (i32, i32) {
+        let ids = self.pack_ids();
+        let mb: u64 = ids.iter().filter_map(|id| self.catalog.package(id)).map(size_mb).sum();
+        (ids.len() as i32, mb as i32)
+    }
+
     fn selection_size(&self) -> (i32, i32) {
         let mb: u64 = self.selected.iter().filter_map(|id| self.catalog.package(id)).map(size_mb).sum();
         (self.selected.len() as i32, mb as i32)
@@ -252,6 +285,22 @@ pub fn run(catalog: Catalog) -> Result<()> {
             .into(),
     );
     main.set_log_dir(data_dir().join("logs").display().to_string().into());
+    let desktop = PathBuf::from(std::env::var("USERPROFILE").unwrap_or_else(|_| r"C:\Users\Public".into())).join("Desktop");
+    main.set_pack_path(desktop.join("CAIOR-Offline.exe").display().to_string().into());
+    {
+        let main_weak = main.as_weak();
+        main.on_set_pack_format(move |f| {
+            let Some(m) = main_weak.upgrade() else { return };
+            m.set_pack_format(f);
+            let path = m.get_pack_path().to_string();
+            let fixed = match (f, path.to_ascii_lowercase().ends_with(".exe")) {
+                (1, true) => path[..path.len() - 4].to_string(),
+                (0, false) => format!("{}.exe", path.trim_end_matches(['\\', '/'])),
+                _ => path,
+            };
+            m.set_pack_path(fixed.into());
+        });
+    }
     main.set_language(0);
 
     let gui = Rc::new(RefCell::new(Gui {
@@ -261,6 +310,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
         selected: HashSet::new(),
         row_ids: Vec::new(),
         turkish,
+        profile: 0,
     }));
     let rows_model = Rc::new(VecModel::<PackageRow>::default());
     main.set_rows(ModelRc::from(rows_model.clone()));
@@ -279,6 +329,9 @@ pub fn run(catalog: Catalog) -> Result<()> {
             let (n, mb) = g.selection_size();
             main.set_selected_count(n);
             main.set_selected_mb(mb);
+            let (pn, pmb) = g.pack_size();
+            main.set_pack_count(pn);
+            main.set_pack_mb(pmb);
             main.set_can_install(n > 0 && !main.global::<AppState>().get_busy());
         }
     };
@@ -334,6 +387,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
         let main_weak = main.as_weak();
         main.on_choose_profile(move |i| {
             gui.borrow_mut().select_profile(ProfileChoice::from_index(i));
+            gui.borrow_mut().profile = i;
             if let Some(m) = main_weak.upgrade() {
                 m.set_profile(i);
             }
@@ -356,6 +410,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
                 if !g.selected.remove(&id) {
                     g.selected.insert(id);
                 }
+                g.profile = 5;
             }
             if let Some(m) = main_weak.upgrade() {
                 m.set_profile(5);
@@ -374,11 +429,15 @@ pub fn run(catalog: Catalog) -> Result<()> {
         let cancel = cancel.clone();
         let cancel_file = cancel_file.clone();
         let main_weak = main.as_weak();
-        move |download_only: bool| {
+        // mode: 0 install, 1 download only, 2 offline package
+        move |mode: u8| {
             let Some(main) = main_weak.upgrade() else { return };
+            let download_only = mode != 0;
+            let pack = mode == 2;
             let g = gui.borrow();
-            let ids: Vec<String> = g.selected.iter().cloned().collect();
-            let Ok(plan) = plan::build(&g.catalog, &g.sys, &g.states, &ids, PlanOptions::default()) else { return };
+            let ids: Vec<String> = if pack { g.pack_ids() } else { g.selected.iter().cloned().collect() };
+            let opts = PlanOptions { reinstall: pack };
+            let Ok(plan) = plan::build(&g.catalog, &g.sys, &g.states, &ids, opts) else { return };
             progress_model.set_vec(
                 plan.install
                     .iter()
@@ -402,6 +461,8 @@ pub fn run(catalog: Catalog) -> Result<()> {
                 s.set_declined(false);
                 s.set_reboot_needed(false);
                 s.set_download_only(download_only);
+                s.set_pack_mode(pack);
+                s.set_pack_result("".into());
                 s.set_current_name("".into());
                 s.set_stage(if download_only || g.sys.elevated { 0 } else { 1 });
             });
@@ -412,6 +473,8 @@ pub fn run(catalog: Catalog) -> Result<()> {
             let elevated = g.sys.elevated;
             let catalog = g.catalog.clone();
             drop(g);
+            let pack_folder = main.get_pack_format() == 1;
+            let pack_out = PathBuf::from(main.get_pack_path().to_string());
             let main_weak = main.as_weak();
             let card_weak = windows.card.clone();
             let cancel = cancel.clone();
@@ -432,7 +495,39 @@ pub fn run(catalog: Catalog) -> Result<()> {
                 // CAIOR_FORCE_WORKER exercises the worker + pipe path where everything is
                 // already elevated (Windows Sandbox), since UAC itself cannot be scripted.
                 let force_worker = std::env::var_os("CAIOR_FORCE_WORKER").is_some();
-                if download_only || (elevated && !force_worker) {
+                if pack {
+                    // Download into the cache, then write the package; the final
+                    // Finished event goes out only after the package is on disk.
+                    let opts = session_options(true);
+                    let mut summary = session::run(&catalog, &plan, &opts, &cancel, &|e| {
+                        if !matches!(e, Event::Finished(_)) {
+                            forward(e)
+                        }
+                    });
+                    let mut result_path = String::new();
+                    if summary.failed == 0 && !summary.cancelled {
+                        let (mw, cw) = (main_weak.clone(), card_weak.clone());
+                        let _ = slint::invoke_from_event_loop(move || Windows { main: mw, card: cw }.state(|s| s.set_stage(4)));
+                        let ids: Vec<String> = plan.install.iter().map(|i| i.id.clone()).collect();
+                        let cache = caior_core::fetch::Cache::new(caior_core::bundle::effective_cache(&opts.cache_dir));
+                        let format = if pack_folder { caior_core::bundle::Format::Folder } else { caior_core::bundle::Format::Exe };
+                        match caior_core::bundle::pack(&catalog, &ids, &cache, format, &pack_out) {
+                            Ok((count, path)) => {
+                                summary.downloaded = count;
+                                result_path = path.display().to_string();
+                            }
+                            Err(e) => {
+                                summary.failed += 1;
+                                forward(Event::Failed { id: "offline-package".into(), error: e.to_string() });
+                            }
+                        }
+                    }
+                    let (mw, cw) = (main_weak.clone(), card_weak.clone());
+                    let _ = slint::invoke_from_event_loop(move || {
+                        Windows { main: mw.clone(), card: cw.clone() }.state(|s| s.set_pack_result(result_path.clone().into()));
+                        on_event(&mw, &cw, Event::Finished(summary));
+                    });
+                } else if download_only || (elevated && !force_worker) {
                     let summary = session::run(&catalog, &plan, &session_options(download_only), &cancel, &forward);
                     let _ = summary;
                 } else {
@@ -475,11 +570,15 @@ pub fn run(catalog: Catalog) -> Result<()> {
     let start = Rc::new(start);
     {
         let start = start.clone();
-        main.on_install(move || start(false));
+        main.on_install(move || start(0));
     }
     {
         let start = start.clone();
-        main.on_download_only(move || start(true));
+        main.on_download_only(move || start(1));
+    }
+    {
+        let start = start.clone();
+        main.on_create_package(move || start(2));
     }
 
     // After a session: detect again so the list shows the new state.
@@ -585,6 +684,15 @@ pub fn run(catalog: Catalog) -> Result<()> {
     main.global::<AppState>().on_restart_now(restart);
     card.global::<AppState>().on_restart_now(restart);
 
+    {
+        let main_weak = main.as_weak();
+        main.global::<AppState>().on_show_pack_result(move || {
+            if let Some(m) = main_weak.upgrade() {
+                let path = m.global::<AppState>().get_pack_result().to_string();
+                let _ = std::process::Command::new("explorer.exe").arg(format!("/select,{path}")).spawn();
+            }
+        });
+    }
     main.on_open_logs(|| {
         let dir = data_dir().join("logs");
         let _ = std::fs::create_dir_all(&dir);

@@ -345,3 +345,34 @@ pub fn worker(catalog: &Catalog, pipe: &str, cancel_file: Option<&std::path::Pat
     cancel.store(true, std::sync::atomic::Ordering::Relaxed);
     Ok(summary.exit_code())
 }
+
+/// `caior pack`: download and verify the selection, then write an offline
+/// package. Packages already installed on this PC are included too: the
+/// package is meant for other PCs.
+pub fn pack(catalog: &Catalog, sel: &SelectionArgs, out: &std::path::Path, folder: bool) -> Result<i32> {
+    let sys = SystemInfo::current();
+    let mut sel = sel.clone();
+    sel.reinstall = true;
+    sel.download_only = true;
+    let plan = make_plan(catalog, &sys, &sel)?;
+    if plan.install.is_empty() {
+        println!("Nothing to pack.");
+        return Ok(0);
+    }
+    print_plan(catalog, &plan);
+    let printer = Printer::new(catalog);
+    let opts = sel.session_options();
+    let cancel = AtomicBool::new(false);
+    let summary = session::run(catalog, &plan, &opts, &cancel, &|e| printer.print(&e));
+    if summary.failed > 0 {
+        println!("Error: {} package(s) could not be downloaded; the offline package was not written.", summary.failed);
+        return Ok(1);
+    }
+    let ids: Vec<String> = plan.install.iter().map(|i| i.id.clone()).collect();
+    let cache = caior_core::fetch::Cache::new(caior_core::bundle::effective_cache(&opts.cache_dir));
+    let format = if folder { caior_core::bundle::Format::Folder } else { caior_core::bundle::Format::Exe };
+    let (count, exe) = caior_core::bundle::pack(catalog, &ids, &cache, format, out)?;
+    let size = if folder { String::new() } else { format!(", {} MB", std::fs::metadata(&exe).map(|m| m.len()).unwrap_or(0) / 1_048_576) };
+    println!("Offline package written: {} ({count} packages{size})", exe.display());
+    Ok(0)
+}

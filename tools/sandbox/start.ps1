@@ -11,14 +11,18 @@ param(
     [switch]$Gui,
     [int]$GuiProfile = 0,
     [string]$GuiExclude = "",
-    [switch]$ForceWorker
+    [switch]$ForceWorker,
+    # Test a specific exe (e.g. an offline package) instead of target\release\caior.exe.
+    [string]$Exe = "",
+    # Turn networking off inside the sandbox (offline package test).
+    [switch]$NoNetwork
 )
 
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$build = Join-Path $root "target\release"
-if (-not (Test-Path (Join-Path $build "caior.exe"))) {
-    throw "Error: target\release\caior.exe is missing. Run: cargo build --release -p caior"
+$source = if ($Exe) { (Resolve-Path $Exe).Path } else { Join-Path $root "target\release\caior.exe" }
+if (-not (Test-Path $source)) {
+    throw "Error: $source is missing. Run: cargo build --release -p caior"
 }
 New-Item -ItemType Directory -Force -Path $Results | Out-Null
 # Only clear a folder this script made before (it holds caior-test.wsb).
@@ -33,7 +37,7 @@ if ($existing.Count -gt 0) {
 # Copy only the exe so the sandbox sees nothing else from the build folder.
 $stage = Join-Path $Results "_stage"
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
-Copy-Item (Join-Path $build "caior.exe") $stage
+Copy-Item $source (Join-Path $stage "caior.exe")
 
 $catalogMap = ""
 if ($Catalog) {
@@ -45,7 +49,7 @@ if ($Catalog) {
 
 $wsb = @"
 <Configuration>
-  <Networking>Enable</Networking>
+  <Networking>$(if ($NoNetwork) { "Disable" } else { "Enable" })</Networking>
   <MappedFolders>
     <MappedFolder><HostFolder>$stage</HostFolder><SandboxFolder>C:\caior</SandboxFolder><ReadOnly>true</ReadOnly></MappedFolder>
     <MappedFolder><HostFolder>$PSScriptRoot</HostFolder><SandboxFolder>C:\caior-tools</SandboxFolder><ReadOnly>true</ReadOnly></MappedFolder>
