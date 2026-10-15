@@ -663,7 +663,7 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "caior"
-version = "3.0.0-alpha.1"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "caior-core",
@@ -676,7 +676,7 @@ dependencies = [
 
 [[package]]
 name = "caior-core"
-version = "3.0.0-alpha.1"
+version = "3.0.0"
 dependencies = [
  "regex",
  "reqwest",
@@ -689,6 +689,16 @@ dependencies = [
  "winreg",
  "wmi",
  "zip",
+]
+
+[[package]]
+name = "caior-ui-tests"
+version = "3.0.0"
+dependencies = [
+ "i-slint-backend-testing",
+ "serde_json",
+ "slint",
+ "slint-build",
 ]
 
 [[package]]
@@ -6267,7 +6277,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "3.0.0-alpha.1"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "caior-core",

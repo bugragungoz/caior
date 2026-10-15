@@ -106,14 +106,22 @@ export component Button inherits Rectangle {
         mouse-cursor: root.enabled ? pointer : default;
         clicked => { focus.focus(); root.clicked(); }
     }
+    // Keyboard only. A FocusScope that covers the control takes the first
+    // mouse press to grab focus, so every control needed two clicks; at zero
+    // size the press reaches the TouchArea (the std widgets do the same).
     focus := FocusScope {
+        x: 0;
+        width: 0;
         enabled: root.enabled;
+        focus-gained(reason) => { root.keyboard-focus = reason == FocusReason.tab-navigation; }
+        focus-lost => { root.keyboard-focus = false; }
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") { root.clicked(); return accept; }
+            if (event.text == Key.Space || event.text == Key.Return) { root.clicked(); return accept; }
             reject
         }
     }
-    FocusRing { show: focus.has-focus; corner: root.height / 2; target-width: root.width; target-height: root.height; }
+    property <bool> keyboard-focus;
+    FocusRing { show: focus.has-focus && root.keyboard-focus; corner: root.height / 2; target-width: root.width; target-height: root.height; }
 }
 
 // Pill chip for profiles and filters; selected chips carry a check.
@@ -158,13 +166,19 @@ export component Chip inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { focus.focus(); root.clicked(); }
     }
+    // Keyboard only, zero size: see Button.
     focus := FocusScope {
+        x: 0;
+        width: 0;
+        focus-gained(reason) => { root.keyboard-focus = reason == FocusReason.tab-navigation; }
+        focus-lost => { root.keyboard-focus = false; }
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") { root.clicked(); return accept; }
+            if (event.text == Key.Space || event.text == Key.Return) { root.clicked(); return accept; }
             reject
         }
     }
-    FocusRing { show: focus.has-focus; corner: root.height / 2; target-width: root.width; target-height: root.height; }
+    property <bool> keyboard-focus;
+    FocusRing { show: focus.has-focus && root.keyboard-focus; corner: root.height / 2; target-width: root.width; target-height: root.height; }
 }
 
 // Square check box. The edge uses border-control so it reaches 3:1.
@@ -261,13 +275,19 @@ export component NavItem inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { focus.focus(); root.clicked(); }
     }
+    // Keyboard only, zero size: see Button.
     focus := FocusScope {
+        x: 0;
+        width: 0;
+        focus-gained(reason) => { root.keyboard-focus = reason == FocusReason.tab-navigation; }
+        focus-lost => { root.keyboard-focus = false; }
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") { root.clicked(); return accept; }
+            if (event.text == Key.Space || event.text == Key.Return) { root.clicked(); return accept; }
             reject
         }
     }
-    FocusRing { show: focus.has-focus; corner: Theme.radius-sm; target-width: root.width; target-height: root.height; }
+    property <bool> keyboard-focus;
+    FocusRing { show: focus.has-focus && root.keyboard-focus; corner: Theme.radius-sm; target-width: root.width; target-height: root.height; }
 }
 
 // Note box: title rule plus a muted reason.

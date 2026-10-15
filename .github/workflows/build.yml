@@ -1,10 +1,13 @@
 name: build
 
 on:
+  # Every branch builds, so a work branch has a tested caior.exe artifact
+  # before it is merged; tags v* also publish a release.
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write

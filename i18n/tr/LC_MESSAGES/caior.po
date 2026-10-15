@@ -219,3 +219,18 @@ msgstr "Windows özellikleri (.NET 3.5, DirectPlay) Windows Update üzerinden ge
 
 msgid "Show in folder"
 msgstr "Klasörde göster"
+
+msgid "Stopping after the current package..."
+msgstr "Bu paket bitince duracak..."
+
+msgid "{} downloaded, {} failed. See the logs for details."
+msgstr "{} indirildi, {} başarısız. Ayrıntılar kayıtlarda."
+
+msgid "Offline package with {} installers"
+msgstr "{} kurulum dosyalı offline paket"
+
+msgid "build {}"
+msgstr "derleme {}"
+
+msgid "Close"
+msgstr "Kapat"

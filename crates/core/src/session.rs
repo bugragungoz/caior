@@ -435,6 +435,40 @@ mod tests {
         assert_eq!(serde_json::from_str::<Event>(&serde_json::to_string(&f).unwrap()).unwrap(), f);
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn staging_copies_or_unzips_the_locked_download() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("caior-stage-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut src: crate::catalog::Source =
+            toml::from_str("url = \"https://example.com/a.exe\"\nfilename = \"a.exe\"").unwrap();
+
+        let run = dir.join("run");
+        std::fs::create_dir_all(&run).unwrap();
+        let plain = dir.join("a.exe");
+        std::fs::write(&plain, b"plain installer").unwrap();
+        let lock = lock_for_run(&plain).unwrap();
+        let (staged, _staged_lock) = stage(&src, &lock, &plain, &run, "p").unwrap();
+        assert_eq!(std::fs::read(&staged).unwrap(), b"plain installer");
+        assert!(std::fs::write(&plain, b"swapped").is_err(), "the download stays locked");
+        drop(lock);
+
+        let zip_path = dir.join("deps.zip");
+        let mut zip = zip::ZipWriter::new(File::create(&zip_path).unwrap());
+        zip.start_file("x64/Inner.appx", zip::write::SimpleFileOptions::default()).unwrap();
+        zip.write_all(b"inner package").unwrap();
+        zip.finish().unwrap();
+        src.extract = toml::from_str("archive = \"zip\"\nentry = \"x64/inner.appx\"").ok();
+        let lock = lock_for_run(&zip_path).unwrap();
+        let (staged, _l) = stage(&src, &lock, &dir.join("Inner.appx"), &run, "q").unwrap();
+        assert_eq!(std::fs::read(&staged).unwrap(), b"inner package");
+        assert_eq!(staged, run.join("q").join("Inner.appx"));
+        drop(lock);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn exit_codes() {
         assert_eq!(Summary::default().exit_code(), 0);

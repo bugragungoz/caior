@@ -80,3 +80,37 @@ fn random() -> u64 {
 pub fn system_temp() -> PathBuf {
     PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join("Temp")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `icacls` prints account names in the system language, but the flags
+    /// are the same everywhere: `(I)` marks an inherited entry.
+    fn acl(path: &Path) -> String {
+        let out = std::process::Command::new("icacls").arg(path).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    }
+
+    #[test]
+    fn private_folder_has_only_its_own_entries() {
+        let base = std::env::temp_dir().join(format!("caior-secure-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+
+        let admins = base.join("admins");
+        create(&admins, Readers::AdminsOnly).unwrap();
+        let text = acl(&admins);
+        assert!(!text.contains("(I)"), "nothing inherited:\n{text}");
+        assert_eq!(text.matches("(OI)(CI)(F)").count(), 2, "SYSTEM and Administrators only:\n{text}");
+        assert!(!text.contains("(RX)"), "{text}");
+        assert_eq!(create(&admins, Readers::AdminsOnly).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+
+        let logs = create_unique(&base, "logs-", Readers::Users).unwrap();
+        let text = acl(&logs);
+        assert!(!text.contains("(I)"), "{text}");
+        assert_eq!(text.matches("(OI)(CI)(RX)").count(), 1, "Users may read:\n{text}");
+        assert_ne!(create_unique(&base, "logs-", Readers::Users).unwrap(), logs);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}

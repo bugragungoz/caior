@@ -1,6 +1,6 @@
 # CAIOR v3 - Plan
 
-Son güncelleme: 2026-10-15. Durum: v3.0.0-alpha.1 yayında (GitHub: bugragungoz/caior). Tüm fazlar tamam; açık işler 4b ve aşağıdaki notlarda.
+Son güncelleme: 2026-10-15. Durum: v3.0.0 (sürüm numarası); son yayın v3.0.0-alpha.1 (GitHub: bugragungoz/caior). Tüm fazlar tamam; açık işler 4b ve aşağıdaki notlarda.
 
 ## 1. Amaç
 
@@ -141,6 +141,19 @@ Seçenekler (Ayarlar): kurulum öncesi sistem geri yükleme noktası (varsayıla
 - 1618 beklemesi (30 sn) İptal'e yanıt vermiyordu.
 - CLI hataları "Error: Error: ..." diye iki kez yazılıyordu; kullanım hataları artık 2 ile çıkar.
 - `install/command.rs` testinde görünmez bir form-feed karakteri vardı; komut testleri artık Linux'ta da geçiyor (`cargo test -p caior-core`).
+
+## 4d. 2026-10-15 GUI turu ve 3.0.0
+
+- **İki kere tıklama hatası:** `Button`, `Chip` ve `NavItem` içindeki `FocusScope` kontrolün tamamını kaplıyor ve TouchArea'nın üstünde duruyordu. Slint'te odakta olmayan bir FocusScope ilk fare basışını odak almak için yutuyor (`EventAccepted`), bu yüzden her yeni kontrol iki tık istiyordu. FocusScope artık sıfır genişlikte (Slint std widget'ları gibi); odak halkası yalnızca Tab ile gelen odakta görünüyor.
+- **Başsız UI testleri:** `crates/ui-tests` gerçek `ui/app.slint`'i app'in build script'iyle derler ve Slint test backend'iyle tıklar (ekransız, Linux'ta da çalışır). Her kontrol türünün tek tıkla çalıştığını, devre dışı öğelerin tepki vermediğini, İptal'i, kartın kapanmasını ve `@tr` metinlerinin hepsinin `caior.po`'da Türkçesi olduğunu denetler. Eski bileşenlerle tıklama testleri başarısız oluyor (kanıtlandı).
+- **Kart sonrası görünmez süreç:** Kartla takip edilen başarılı kurulumdan sonra kart kapanınca ana pencere de gizli olduğu için CAIOR arka planda görünmez açık kalıyordu (`run_event_loop_until_quit`). Artık ekranda pencere kalmayınca çıkıyor; bitmiş kartta kapatma düğmesi var.
+- İptal'e basınca düğme kapanır ve "Bu paket bitince duracak..." yazar (önceden geri bildirim yoktu, tekrar tekrar basılıyordu).
+- Tema ve dil seçimi kalıcı: `%APPDATA%\CAIOR\settings.json` (`CAIOR_LANG` hâlâ önce gelir).
+- Paket listesi her tıklamada baştan kurulmuyor, yalnızca değişen satırlar güncelleniyor (kaydırma ve hover korunuyor).
+- Offline paket olarak çalışınca kenar çubuğunda "N kurulum dosyalı offline paket" görünür; hedef yolu boşken "Paketi oluştur" kapalı; indirme hatalarında özet doğru sayıları yazar; "build" metni çevriliyor.
+- Paket satırları ekran okuyucuya onay kutusu olarak görünür (ad + seçili durumu).
+- Windows'a özel yeni testler: özel klasörün devralınmayan, yalnızca SYSTEM + Administrators izinli oluşması (`icacls` ile) ve installer'ın kilitli indirmeden birebir kopyalanıp zip'ten çıkarılması.
+- CI artık her dalda çalışır (dal için test edilmiş `caior.exe` artifact'i), elle de başlatılabilir. Sürüm 3.0.0; etiket ve Release kullanıcı isteyince.
 
 ## 5. Yol haritası
 

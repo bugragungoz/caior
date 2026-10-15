@@ -11,7 +11,8 @@ Kaynak: Bugra design system (`design/bugra/`). Renk, yazı, boşluk ve köşe de
 - Köşeler: kart/panel `radius` 14, alan/not/menü `radius-sm` 10, her buton/chip/rozet `pill`.
 - Yazı: Geist (400/500/600) ve JetBrains Mono, exe'ye gömülü (OFL lisanslı). Başlıklar 600, sıkı harf aralığı.
 - Hareket: 100-300ms, `ease-out`; sistemde "animasyonları azalt" açıksa neredeyse sıfır.
-- Odak: 2px `focus-ring`, 3px ofset, her etkileşimli öğede. Klavyeyle her şeye erişilir; Esc diyalog/menüyü kapatır.
+- Odak: 2px `focus-ring`, 3px ofset, her etkileşimli öğede; halka yalnızca klavyeyle (Tab) gelen odakta görünür, fareyle tıklayınca görünmez. Klavyeyle her şeye erişilir; Esc diyalog/menüyü kapatır.
+- Slint kuralı: bileşenlerdeki `FocusScope` sıfır genişlikte durur (`x: 0; width: 0;`, std widget'lar gibi). Kontrolü kaplayan bir FocusScope ilk fare basışını odak almak için yutar ve her kontrol iki tık ister (2026-10-15'te düzeltildi; `crates/ui-tests` bunu denetler).
 - Masaüstü yoğun satırlar `control-sm` (34px) olabilir.
 - Metinler: kısa, düz, cümle düzeninde, ünlem yok, emoji yok. Butonlar fiille başlar: "Kur", "Paketi oluştur", "Yeniden başlat".
 - İkonlar: 24px ızgara, 1.6px çizgi, yuvarlak uçlu outline SVG (Lucide tabanlı alt küme, ISC lisansı), `muted` renkte, üzerine gelince `ink`.

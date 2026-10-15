@@ -58,8 +58,11 @@ export global AppState {
     in property <bool> pack-mode;
     in property <string> pack-result;
     callback show-pack-result();
+    // Cancel was pressed: the running installer finishes, nothing new starts.
+    in-out property <bool> cancel-requested;
     out property <string> counter: total-count > 0 ? done-count + " / " + total-count : "";
-    out property <string> stage-text: stage == 4 ? @tr("Writing the offline package...")
+    out property <string> stage-text: cancel-requested && busy ? @tr("Stopping after the current package...")
+        : stage == 4 ? @tr("Writing the offline package...")
         : stage == 1 ? @tr("Waiting for administrator approval...")
         : stage == 2 ? @tr("Downloading {}%", stage-percent)
         : stage == 3 ? @tr("Installing...")
@@ -73,6 +76,7 @@ export global AppState {
         : @tr("All done");
     out property <string> summary-body: declined ? @tr("Administrator approval was declined.")
         : pack-mode && failed-count == 0 ? @tr("{} packages in {}", ok-count, pack-result)
+        : download-only && failed-count > 0 ? @tr("{} downloaded, {} failed. See the logs for details.", ok-count, failed-count)
         : download-only ? @tr("{} packages downloaded and verified.", ok-count)
         : failed-count > 0 ? @tr("{} installed, {} failed. See the logs for details.", ok-count, failed-count)
         : reboot-needed ? @tr("{} installed. Restart Windows to finish.", ok-count)
@@ -80,6 +84,7 @@ export global AppState {
     callback cancel();
     callback restart-now();
     callback show-main();
+    callback close-card();
 }
 
 component PackageListRow inherits Rectangle {
@@ -160,6 +165,15 @@ component PackageListRow inherits Rectangle {
         StatusLabel { status: item.status; min-width: 130px; }
     }
 
+    // What screen readers (and the UI tests) see: one check box per package.
+    if !item.is-header: Rectangle {
+        accessible-role: checkbox;
+        accessible-label: item.name;
+        accessible-checked: item.checked;
+        accessible-enabled: item.enabled;
+        accessible-action-default => { if (item.enabled) { root.toggled(); } }
+    }
+
     touch := TouchArea {
         enabled: !item.is-header && item.enabled;
         mouse-cursor: self.enabled ? pointer : default;
@@ -221,6 +235,9 @@ export component MainWindow inherits Window {
     in property <[PackageRow]> rows;
     in property <[ProgressRow]> progress-rows;
     in property <string> system-text;
+    in property <int> os-build;
+    // Installers carried by this exe or the caior-packages folder next to it.
+    in property <int> bundled-count;
     in property <int> selected-count;
     in property <int> selected-mb;
     in property <int> pack-count;
@@ -289,8 +306,14 @@ export component MainWindow inherits Window {
                 NavItem { text: @tr("Logs"); icon: Icons.history; active: root.page == 3; clicked => { root.page = 3; } }
                 NavItem { text: @tr("Settings"); icon: Icons.settings; active: root.page == 4; clicked => { root.page = 4; } }
                 Rectangle { vertical-stretch: 1; }
+                if root.bundled-count > 0: Text {
+                    text: @tr("Offline package with {} installers", root.bundled-count);
+                    color: Theme.accent-ink;
+                    font-size: Theme.type-small-size;
+                    wrap: word-wrap;
+                }
                 Text {
-                    text: root.system-text;
+                    text: root.system-text + "  " + @tr("build {}", root.os-build);
                     color: Theme.muted;
                     font-size: Theme.type-small-size;
                     wrap: word-wrap;
@@ -423,7 +446,7 @@ export component MainWindow inherits Window {
                         text: @tr("Create package");
                         icon: Icons.offline;
                         has-icon: true;
-                        enabled: root.pack-count > 0 && !AppState.busy;
+                        enabled: root.pack-count > 0 && !AppState.busy && root.pack-path != "";
                         clicked => { root.create-package(); }
                     }
                 }
@@ -545,7 +568,11 @@ export component MainWindow inherits Window {
                 if root.page == 1 && AppState.busy: Button {
                     text: @tr("Cancel");
                     kind: ButtonKind.ghost;
-                    clicked => { AppState.cancel(); }
+                    enabled: !AppState.cancel-requested;
+                    clicked => {
+                        AppState.cancel-requested = true;
+                        AppState.cancel();
+                    }
                 }
                 if root.page == 1 && AppState.finished && AppState.pack-mode && AppState.failed-count == 0: Button {
                     text: @tr("Show in folder");
@@ -611,8 +638,20 @@ export component MiniCard inherits Window {
                 background: expand.has-hover ? Theme.surface-2 : transparent;
                 accessible-role: button;
                 accessible-label: @tr("Show the main window");
+                accessible-action-default => { AppState.show-main(); }
                 Icon { source: Icons.maximize; ink: expand.has-hover ? Theme.ink : Theme.muted; width: 15px; height: 15px; }
                 expand := TouchArea { mouse-cursor: pointer; clicked => { AppState.show-main(); } }
+            }
+            if AppState.finished: Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.radius-xs;
+                background: close.has-hover ? Theme.surface-2 : transparent;
+                accessible-role: button;
+                accessible-label: @tr("Close");
+                accessible-action-default => { AppState.close-card(); }
+                Icon { source: Icons.x; ink: close.has-hover ? Theme.ink : Theme.muted; width: 15px; height: 15px; }
+                close := TouchArea { mouse-cursor: pointer; clicked => { AppState.close-card(); } }
             }
         }
         Text {

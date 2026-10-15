@@ -279,27 +279,94 @@ fn apply_language(turkish: bool) {
     let _ = slint::select_bundled_translation(if turkish { "tr" } else { "" });
 }
 
+/// Theme and language picked in Settings (0 system, 1 and 2 the fixed
+/// choices), kept per user in %APPDATA%\CAIOR\settings.json.
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+struct Settings {
+    theme: i32,
+    language: i32,
+}
+
+impl Settings {
+    fn path() -> Option<PathBuf> {
+        std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("CAIOR").join("settings.json"))
+    }
+
+    fn parse(text: &str) -> Settings {
+        let v: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
+        let get = |k: &str| v.get(k).and_then(serde_json::Value::as_i64).filter(|n| (0..=2).contains(n)).unwrap_or(0) as i32;
+        Settings { theme: get("theme"), language: get("language") }
+    }
+
+    fn load() -> Settings {
+        Self::path().and_then(|p| std::fs::read_to_string(p).ok()).map(|t| Self::parse(&t)).unwrap_or_default()
+    }
+
+    fn save(self) {
+        let Some(path) = Self::path() else { return };
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, serde_json::json!({ "theme": self.theme, "language": self.language }).to_string());
+    }
+
+    fn dark(self) -> bool {
+        match self.theme {
+            1 => true,
+            2 => false,
+            _ => !caior_core::desktop::apps_use_light_theme(),
+        }
+    }
+
+    /// CAIOR_LANG (for snapshots) wins over a saved choice.
+    fn turkish(self) -> bool {
+        match self.language {
+            _ if std::env::var_os("CAIOR_LANG").is_some() => caior_core::desktop::ui_language_is_turkish(),
+            1 => false,
+            2 => true,
+            _ => caior_core::desktop::ui_language_is_turkish(),
+        }
+    }
+}
+
+/// Replaces only the rows that changed, so the list keeps its scroll position
+/// and hover state instead of being rebuilt on every click.
+fn update_rows<T: Clone + PartialEq + 'static>(model: &VecModel<T>, rows: Vec<T>) {
+    if model.row_count() != rows.len() {
+        model.set_vec(rows);
+        return;
+    }
+    for (i, row) in rows.into_iter().enumerate() {
+        if model.row_data(i).as_ref() != Some(&row) {
+            model.set_row_data(i, row);
+        }
+    }
+}
+
 pub fn run(catalog: Catalog) -> Result<()> {
-    let turkish = caior_core::desktop::ui_language_is_turkish();
+    let settings = Rc::new(std::cell::Cell::new(Settings::load()));
+    let turkish = settings.get().turkish();
     let main = MainWindow::new()?;
     let card = MiniCard::new()?;
     // Slint only accepts a bundled language once a component exists.
     apply_language(turkish);
     let windows = Windows { main: main.as_weak(), card: card.as_weak() };
-    windows.theme(!caior_core::desktop::apps_use_light_theme());
+    windows.theme(settings.get().dark());
+    main.set_theme_mode(settings.get().theme);
 
     let sys = SystemInfo::current();
     main.set_version(env!("CARGO_PKG_VERSION").into());
     main.set_system_text(
         format!(
-            "{} {}  {}  build {}",
+            "{} {}  {}",
             sys.product_name.replace("Windows 10", if sys.is_windows_11() { "Windows 11" } else { "Windows 10" }),
             sys.display_version,
             format!("{:?}", sys.os_arch).to_lowercase(),
-            sys.build()
         )
-            .into(),
+        .into(),
     );
+    main.set_os_build(sys.build() as i32);
+    main.set_bundled_count(caior_core::bundle::current().map_or(0, |b| b.index().files.len() as i32));
     main.set_log_dir(data_dir().join("logs").display().to_string().into());
     let desktop = PathBuf::from(std::env::var("USERPROFILE").unwrap_or_else(|_| r"C:\Users\Public".into())).join("Desktop");
     main.set_pack_path(desktop.join("CAIOR-Offline.exe").display().to_string().into());
@@ -317,7 +384,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
             m.set_pack_path(fixed.into());
         });
     }
-    main.set_language(0);
+    main.set_language(settings.get().language);
 
     let gui = Rc::new(RefCell::new(Gui {
         catalog: catalog.clone(),
@@ -341,7 +408,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
             let Some(main) = main_weak.upgrade() else { return };
             let icons = main.global::<Icons>();
             let mut g = gui.borrow_mut();
-            rows_model.set_vec(g.rows(&icons));
+            update_rows(&rows_model, g.rows(&icons));
             let (n, mb) = g.selection_size();
             main.set_selected_count(n);
             main.set_selected_mb(mb);
@@ -494,6 +561,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
                 s.set_ok_count(0);
                 s.set_failed_count(0);
                 s.set_cancelled(false);
+                s.set_cancel_requested(false);
                 s.set_declined(false);
                 s.set_reboot_needed(false);
                 s.set_download_only(download_only);
@@ -654,6 +722,13 @@ pub fn run(catalog: Catalog) -> Result<()> {
         card.global::<AppState>().on_show_main(show_main2);
     }
 
+    // The card's close button (shown once the run is over). With the main
+    // window hidden there is nothing left on screen, so CAIOR exits.
+    {
+        let windows = windows.clone();
+        card.global::<AppState>().on_close_card(move || close_card(&windows));
+    }
+
     // Closing the window during an install keeps it running in the card.
     {
         let windows = windows.clone();
@@ -713,27 +788,27 @@ pub fn run(catalog: Catalog) -> Result<()> {
     {
         let windows = windows.clone();
         let main_weak = main.as_weak();
+        let settings = settings.clone();
         main.on_set_theme(move |mode| {
             if let Some(m) = main_weak.upgrade() {
                 m.set_theme_mode(mode);
             }
-            windows.theme(match mode {
-                1 => true,
-                2 => false,
-                _ => !caior_core::desktop::apps_use_light_theme(),
-            });
+            let s = Settings { theme: mode, ..settings.get() };
+            settings.set(s);
+            s.save();
+            windows.theme(s.dark());
         });
     }
     {
         let gui = gui.clone();
         let refresh = refresh.clone();
         let main_weak = main.as_weak();
+        let settings = settings.clone();
         main.on_set_language(move |lang| {
-            let turkish = match lang {
-                1 => false,
-                2 => true,
-                _ => caior_core::desktop::ui_language_is_turkish(),
-            };
+            let s = Settings { language: lang, ..settings.get() };
+            settings.set(s);
+            s.save();
+            let turkish = s.turkish();
             apply_language(turkish);
             gui.borrow_mut().turkish = turkish;
             if let Some(m) = main_weak.upgrade() {
@@ -746,6 +821,20 @@ pub fn run(catalog: Catalog) -> Result<()> {
     main.show()?;
     slint::run_event_loop_until_quit()?;
     Ok(())
+}
+
+/// Hides the bottom-right card. If the main window is hidden too, nothing is
+/// left on screen and the event loop would keep CAIOR running invisibly, so
+/// it quits instead.
+fn close_card(windows: &Windows) {
+    let Some(c) = windows.card.upgrade() else { return };
+    if !c.window().is_visible() {
+        return;
+    }
+    let _ = c.hide();
+    if !windows.main.upgrade().is_some_and(|m| m.window().is_visible()) {
+        let _ = slint::quit_event_loop();
+    }
 }
 
 /// Applies one session event to both windows.
@@ -854,12 +943,7 @@ fn on_event(main_weak: &slint::Weak<MainWindow>, card_weak: &slint::Weak<MiniCar
             main.invoke_session_ended();
             // A clean run without restart clears the card after a while.
             if summary.failed == 0 && !summary.reboot_required && !summary.cancelled {
-                let card_weak = card_weak.clone();
-                slint::Timer::single_shot(std::time::Duration::from_secs(8), move || {
-                    if let Some(c) = card_weak.upgrade() {
-                        let _ = c.hide();
-                    }
-                });
+                slint::Timer::single_shot(std::time::Duration::from_secs(8), move || close_card(&windows));
             }
         }
     }
@@ -956,4 +1040,25 @@ fn schedule_autotest(main_weak: &slint::Weak<MainWindow>, card_weak: &slint::Wea
     });
     // Keep the timer alive for the rest of the run.
     std::mem::forget(timer);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_keep_known_values_only() {
+        assert_eq!(Settings::parse(r#"{"theme": 2, "language": 1}"#), Settings { theme: 2, language: 1 });
+        assert_eq!(Settings::parse(r#"{"theme": 7, "language": "tr"}"#), Settings::default());
+        assert_eq!(Settings::parse("not json"), Settings::default());
+    }
+
+    #[test]
+    fn rows_update_in_place() {
+        let model = VecModel::from(vec![1, 2, 3]);
+        update_rows(&model, vec![1, 5, 3]);
+        assert_eq!(model.iter().collect::<Vec<_>>(), vec![1, 5, 3]);
+        update_rows(&model, vec![9]);
+        assert_eq!(model.iter().collect::<Vec<_>>(), vec![9]);
+    }
 }

@@ -1,6 +1,6 @@
-//! 1. Generates `theme.slint` from the Bugra design tokens (design/bugra/tokens.json)
-//!    into OUT_DIR, so `.slint` files never carry hand-written colors or sizes.
-//! 2. Compiles the UI with the Turkish translation bundled.
+// 1. Generates `theme.slint` from the Bugra design tokens (design/bugra/tokens.json)
+//    into OUT_DIR, so `.slint` files never carry hand-written colors or sizes.
+// 2. Compiles the UI with the Turkish translation bundled.
 
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -145,7 +145,7 @@ fn generate_theme(tokens: &Value) -> String {
     out
 }
 
-fn main() {
+pub fn main() {
     let tokens_path = root().join("design/bugra/tokens.json");
     println!("cargo:rerun-if-changed={}", tokens_path.display());
     let tokens: Value = serde_json::from_str(&std::fs::read_to_string(&tokens_path).unwrap()).unwrap();

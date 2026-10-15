@@ -1,0 +1,20 @@
+[package]
+name = "caior-ui-tests"
+description = "Headless tests for the CAIOR UI: clicks, keyboard focus and translations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+# The real ui/app.slint, compiled by the app's own build script, driven through
+# Slint's testing backend. Runs without a display, on Windows and Linux.
+
+[dependencies]
+slint = { version = "1.18.1", default-features = false, features = ["std", "compat-1-2"] }
+
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
+
+[build-dependencies]
+serde_json.workspace = true
+slint-build = "1.18.1"
