@@ -461,8 +461,9 @@ pub fn run(catalog: Catalog) -> Result<()> {
                 for (id, st) in std::mem::take(&mut *detected.lock().unwrap()) {
                     g.states.insert(id, st);
                 }
-                // After a session: keep the profile, drop what is installed now.
-                let profile = if first { 0 } else { m.get_profile() };
+                // Keep the chosen profile (a chip may be clicked while the first
+                // scan runs, or a session just ended); drop what is installed now.
+                let profile = m.get_profile();
                 if profile != 5 {
                     g.select_profile(ProfileChoice::from_index(profile));
                 } else {
