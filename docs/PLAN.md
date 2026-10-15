@@ -154,6 +154,8 @@ Seçenekler (Ayarlar): kurulum öncesi sistem geri yükleme noktası (varsayıla
 - Paket satırları ekran okuyucuya onay kutusu olarak görünür (ad + seçili durumu).
 - Windows'a özel yeni testler: özel klasörün devralınmayan, yalnızca SYSTEM + Administrators izinli oluşması (`icacls` ile) ve installer'ın kilitli indirmeden birebir kopyalanıp zip'ten çıkarılması.
 - CI artık her dalda çalışır (dal için test edilmiş `caior.exe` artifact'i), elle de başlatılabilir. Sürüm 3.0.0; etiket ve Release kullanıcı isteyince.
+- Windows CI yeni testlerle iki hata yakaladı: özel klasöre kopyalanan installer kendi yazma tutamacı açıkken kilitlenmeye çalışılıyordu (dosyalı her paket kurulamazdı) ve klasör zaten varsa hata türü `AlreadyExists` yerine `Uncategorized` geliyordu. İkisi düzeltildi; kurulum yolunun tamamını sahte bir paketle (cmd.exe kopyası) deneyen uçtan uca test eklendi.
+- Yayın öncesi test planı: `docs/TEST-PLAN.md`; otomatik kısmı `tools/test/check.ps1`. Sandbox testleri artık özel klasörün ve kayıt klasörünün izinlerini (`staging-acl.txt`, `logs-acl.txt`) ve klasörün silindiğini (`staging-left.txt`) kaydeder.
 
 ## 5. Yol haritası
 

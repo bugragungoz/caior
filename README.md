@@ -52,7 +52,7 @@ cargo test --workspace
 cargo xtask catalog check --strict
 ```
 
-The UI tests run without a display, on Linux too: `cargo test -p caior-ui-tests`. Test real installs in Windows Sandbox, see [tools/sandbox](tools/sandbox). The package catalog is in [catalog/](catalog), its format in [docs/CATALOG-FORMAT.md](docs/CATALOG-FORMAT.md).
+The UI tests run without a display, on Linux too: `cargo test -p caior-ui-tests`. Before a release, run `tools\test\check.ps1` and follow [docs/TEST-PLAN.md](docs/TEST-PLAN.md); real installs are tested in Windows Sandbox, see [tools/sandbox](tools/sandbox). The package catalog is in [catalog/](catalog), its format in [docs/CATALOG-FORMAT.md](docs/CATALOG-FORMAT.md).
 
 ## License
 

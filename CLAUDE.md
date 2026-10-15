@@ -11,6 +11,7 @@ Read `docs/PLAN.md` first; it holds the decisions, architecture and phase list. 
 - UI text: English source strings in `@tr(...)`, Turkish in `i18n/tr/LC_MESSAGES/caior.po` (add every new string there). Rust only passes numbers, names and states.
 - Look at the UI with `CAIOR_SNAPSHOT=<file.png> [CAIOR_PAGE=n] [CAIOR_LANG=tr] caior.exe`; test GUI installs in Sandbox with `tools/sandbox/start.ps1 -Gui`.
 - Headless UI tests (clicks, focus, every `@tr` string translated): `cargo test -p caior-ui-tests`, runs on Linux too. In components keep `FocusScope` at zero width, or every control needs two clicks.
+- Before a release, follow `docs/TEST-PLAN.md`: `tools/test/check.ps1` (administrator terminal) runs every automated check and writes `summary.txt` plus screenshots; then the Sandbox tests and the manual GUI list.
 - No subagents or workflows: the user's session limit is small.
 - UI copy follows the Bugra content rules: short sentences, sentence case, no exclamation marks or emoji, verb-first buttons, errors start with "Hata:" / "Error:". Every string goes through `@tr` (TR + EN).
 - Every catalog entry needs a verified official URL, silent args checked against vendor docs, a detection rule, and either a SHA256 or a signer allowlist.

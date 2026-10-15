@@ -40,6 +40,27 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 
 & $exe @catalogArgs detect --json --all | Out-File -Encoding utf8 "$out\detect-before.json"
 
+# While installing, record the permissions of the private folder CAIOR runs the
+# installers from (%SystemRoot%\Temp\CAIOR-*): SYSTEM and Administrators only,
+# nothing inherited. Afterwards the folder must be gone (staging-left.txt).
+$stagingWatch = Start-Job -ArgumentList "$out\staging-acl.txt" -ScriptBlock {
+    param($file)
+    for ($i = 0; $i -lt 14400; $i++) {
+        $d = Get-ChildItem "$env:SystemRoot\Temp" -Directory -Filter "CAIOR-*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($d) { icacls $d.FullName | Out-File -Encoding utf8 $file; return }
+        Start-Sleep -Milliseconds 250
+    }
+}
+function Complete-StagingCheck([string]$LogRoot) {
+    Stop-Job $stagingWatch -ErrorAction SilentlyContinue
+    Remove-Job $stagingWatch -Force -ErrorAction SilentlyContinue
+    $left = @(Get-ChildItem "$env:SystemRoot\Temp" -Directory -Filter "CAIOR-*" -ErrorAction SilentlyContinue)
+    "left=$($left.Count)" | Out-File "$out\staging-left.txt"
+    # The session log folder: administrators write, Users read, nothing inherited.
+    $session = Get-ChildItem $LogRoot -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+    if ($session) { icacls $session.FullName | Out-File -Encoding utf8 "$out\logs-acl.txt" }
+}
+
 if ($Gui) {
     $env:CAIOR_AUTOTEST = "$out\gui"
     $env:CAIOR_AUTOTEST_PROFILE = "$GuiProfile"
@@ -48,6 +69,7 @@ if ($Gui) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     if ($catalogArgs.Count -gt 0) { Start-Process -FilePath $exe -ArgumentList $catalogArgs -Wait } else { Start-Process -FilePath $exe -Wait }
     "gui seconds=$([int]$sw.Elapsed.TotalSeconds)" | Out-File "$out\install-exit.txt"
+    Complete-StagingCheck "C:\ProgramData\CAIOR\logs"
     Copy-Item "C:\ProgramData\CAIOR\logs" "$out\logs" -Recurse -ErrorAction SilentlyContinue
     & $exe @catalogArgs detect --json --all | Out-File -Encoding utf8 "$out\detect-after.json"
     Stop-Transcript | Out-Null
@@ -63,6 +85,7 @@ $installArgs = $catalogArgs + @("install") + $selection + @("--silent", "--logs"
 $sw = [Diagnostics.Stopwatch]::StartNew()
 & $exe @installArgs 2>&1 | Tee-Object -FilePath "$out\install-output.txt"
 "exit=$LASTEXITCODE seconds=$([int]$sw.Elapsed.TotalSeconds)" | Out-File "$out\install-exit.txt"
+Complete-StagingCheck "$out\logs"
 
 & $exe @catalogArgs detect --json --all | Out-File -Encoding utf8 "$out\detect-after.json"
 & $exe @($catalogArgs + @("install") + $selection + @("--dry-run")) 2>&1 | Out-File -Encoding utf8 "$out\second-plan.txt"
