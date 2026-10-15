@@ -71,6 +71,14 @@ if ($Gui) {
     "gui seconds=$([int]$sw.Elapsed.TotalSeconds)" | Out-File "$out\install-exit.txt"
     Complete-StagingCheck "C:\ProgramData\CAIOR\logs"
     Copy-Item "C:\ProgramData\CAIOR\logs" "$out\logs" -Recurse -ErrorAction SilentlyContinue
+    # MSI policy logs and other installer logs from the temp folders, as in CLI runs.
+    $guiTempLogs = Join-Path $out "temp-logs"
+    New-Item -ItemType Directory -Force -Path $guiTempLogs | Out-Null
+    foreach ($dir in @($env:TEMP, "$env:SystemRoot\Temp")) {
+        Get-ChildItem -Path $dir -Recurse -File -Include *.log, *.txt, *.html -ErrorAction SilentlyContinue |
+            Where-Object { $_.Length -lt 20MB } |
+            ForEach-Object { Copy-Item $_.FullName (Join-Path $guiTempLogs ($_.Directory.Name + "_" + $_.Name)) -ErrorAction SilentlyContinue }
+    }
     & $exe @catalogArgs detect --json --all | Out-File -Encoding utf8 "$out\detect-after.json"
     Stop-Transcript | Out-Null
     "done" | Out-File "$out\DONE"

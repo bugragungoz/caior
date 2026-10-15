@@ -50,6 +50,8 @@ Ekran görüntülerinde bak:
 
 Önce release exe hazır olmalı (`cargo build --release -p caior` ya da 1. bölüm). Her test kendi boş sonuç klasörünü kullanır; Sandbox bitince klasörde `DONE` dosyası oluşur. Ayrıntılar: [tools/sandbox/README.md](../tools/sandbox/README.md).
 
+Önerilen profil, Sandbox'ta kurulamayan 5 paket içerir (VC++ 2005 x86/x64, VC++ 2008 x86/x64, .NET 3.5). Aşağıdaki komutlar bunları hariç tutar; tutulmazsa bu 5 paket "Error:" verir ve çıkış 1 olur. Bu beklenen bir Sandbox sınırıdır, hata değildir (2026-10-15 T1 denemesi: 22 kuruldu, tam bu 5'i başarısız).
+
 Her testte kurulumdan sonra bak:
 
 - `staging-acl.txt`: installer'ların çalıştığı `C:\Windows\Temp\CAIOR-...` klasörünün izinleri. Yalnızca iki satır `NT AUTHORITY\SYSTEM:(OI)(CI)(F)` ve `BUILTIN\Administrators:(OI)(CI)(F)`; hiçbir satırda `(I)` yok; `Users` yok.
@@ -59,7 +61,7 @@ Her testte kurulumdan sonra bak:
 ### T1. Önerilen profil, komut satırı
 
 ```
-powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Profile recommended -Results C:\temp\caior-t1
+powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Profile recommended -Extra "--exclude vc-2005-* --exclude vc-2008-* --exclude netfx-35*" -Results C:\temp\caior-t1
 ```
 
 - `install-exit.txt`: `exit=0` ya da `exit=3010`.
@@ -70,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Profile recomm
 ### T2. GUI ile kurulum (worker + UAC yolu)
 
 ```
-powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Gui -ForceWorker -Results C:\temp\caior-t2
+powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Gui -ForceWorker -GuiExclude "vc-2005-*,vc-2008-*,netfx-35*" -Results C:\temp\caior-t2
 ```
 
 - `gui\DONE-GUI`: `done` (`timeout` değil).
@@ -95,7 +97,7 @@ Host'ta paketi oluştur (indirir, kurmaz), sonra ağı kapalı Sandbox'ta kur:
 
 ```
 target\release\caior.exe pack --profile recommended --out C:\temp\caior-offline.exe
-powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Exe C:\temp\caior-offline.exe -NoNetwork -Profile recommended -Results C:\temp\caior-t4
+powershell -ExecutionPolicy Bypass -File tools\sandbox\start.ps1 -Exe C:\temp\caior-offline.exe -NoNetwork -Profile recommended -Extra "--exclude vc-2005-* --exclude vc-2008-* --exclude netfx-35*" -Results C:\temp\caior-t4
 ```
 
 - `pack` çıkışı 0; "Offline package written: ... (N packages, ~1200 MB)".
@@ -133,4 +135,5 @@ Gönder: `C:\temp\caior-check\summary.txt`, Sandbox testlerinin `install-exit.tx
 ## 5. Bilinen sınırlar
 
 - Sandbox'ta VC++ 2005/2008 ve Windows özellikleri (.NET 3.5, DirectPlay, Media Feature Pack) kurulamaz; bunlar için Hyper-V sanal makine gerekir.
+- T3'te bunlara ek olarak Sandbox'ta şu ikisi de kurulmaz (2026-10-15): XNA 3.1 (.NET Framework 2.0 ister, yani .NET 3.5; artık ona bağımlı, .NET 3.5 başarısız olunca atlanır) ve MSXML 4 SP3 (1603; nedeni henüz loglardan doğrulanmadı, büyük olasılıkla WinSxS). T3 raporunda "beklenen" olarak yazılır. Ayrıca .NET 3.5 ve DirectPlay Sandbox'ta "Bilinmiyor" görünür (WMI 0x80070422).
 - Kod imzalama yok: SmartScreen ilk açılışta uyarabilir.

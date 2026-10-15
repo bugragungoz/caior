@@ -262,11 +262,12 @@ reboot_codes = [3010, 1641]
 timeout_sec = 900
 
 [package.detect]
-kind = "registry"
-hive = "HKLM"
-key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App'
-view = "32"
-version_name_prefix = "3.1."
+# The 3.1 installer registers only sharedfx\Microsoft.NETCore.App, never
+# Microsoft.WindowsDesktop.App (seen in its MSI log, Windows Sandbox 2026-10-15),
+# so detection reads the bundle's uninstall entry instead.
+kind = "uninstall"
+display_name = '^Microsoft Windows Desktop Runtime - 3\.1\.\d+ \(x86\)$'
+view = "both"
 min_version = "3.1.32"
 
 [[package]]
@@ -312,11 +313,12 @@ reboot_codes = [3010, 1641]
 timeout_sec = 900
 
 [package.detect]
-kind = "registry"
-hive = "HKLM"
-key = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App'
-view = "32"
-version_name_prefix = "3.1."
+# The 3.1 installer registers only sharedfx\Microsoft.NETCore.App, never
+# Microsoft.WindowsDesktop.App (seen in its MSI log, Windows Sandbox 2026-10-15),
+# so detection reads the bundle's uninstall entry instead.
+kind = "uninstall"
+display_name = '^Microsoft Windows Desktop Runtime - 3\.1\.\d+ \(x64\)$'
+view = "both"
 min_version = "3.1.32"
 
 [[package]]

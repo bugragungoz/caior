@@ -114,9 +114,15 @@ pub fn invocations(pkg: &Package, installer: Option<&Path>, ctx: &RunContext) ->
             } else {
                 format!("Add-AppxPackage -Path {file}")
             };
+            // 0x80073D06 (ERROR_INSTALL_PACKAGE_DOWNGRADE): a newer version of the
+            // package is already installed, e.g. the framework that came with the
+            // full Windows App Runtime installer earlier in the same run. The
+            // package is present, so that counts as success.
             let script = format!(
                 "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'; \
-                 try {{ {action}; exit 0 }} catch {{ [Console]::Error.WriteLine($_.Exception.Message); exit 1 }}"
+                 try {{ {action}; exit 0 }} catch {{ \
+                 if ($_.Exception.HResult -eq -2147009274 -or \"$_\" -match '0x80073D06') {{ [Console]::Out.WriteLine('A newer version is already installed.'); exit 0 }}; \
+                 [Console]::Error.WriteLine($_.Exception.Message); exit 1 }}"
             );
             vec![Invocation {
                 program: ctx.system32(r"WindowsPowerShell\v1.0\powershell.exe"),
