@@ -264,9 +264,93 @@ pub fn write_exe(exe: &Path, files: &[(BundleFile, PathBuf)], out: &Path) -> io:
     Ok(())
 }
 
+/// The catalog as an offline package sees it: only the packages it carries.
+/// Dependencies and conflicts on packages it does not carry are dropped (they
+/// cannot be installed from it anyway); categories left empty disappear.
+pub fn trim_catalog(catalog: &Catalog, bundle: &Bundle) -> Catalog {
+    let carried: std::collections::HashSet<&str> = bundle.index().files.iter().map(|f| f.id.as_str()).collect();
+    let mut out = catalog.clone();
+    for c in &mut out.categories {
+        c.packages.retain(|p| carried.contains(p.id.as_str()));
+        for p in &mut c.packages {
+            p.depends.retain(|d| carried.contains(d.as_str()));
+            p.conflicts.retain(|d| carried.contains(d.as_str()));
+        }
+    }
+    out.categories.retain(|c| !c.packages.is_empty());
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trimmed_catalog_holds_only_carried_packages() {
+        let text = r#"
+[category]
+id = "t"
+name = { en = "T" }
+order = 1
+icon = "x"
+
+[[package]]
+id = "netfx"
+name = "NetFx3"
+version = "3.5"
+arch = "neutral"
+order = 1
+[package.install]
+kind = "dism-feature"
+feature = "NetFx3"
+[package.detect]
+kind = "none"
+
+[[package]]
+id = "xna"
+name = "XNA"
+version = "3.1"
+arch = "x86"
+order = 2
+depends = ["netfx"]
+[package.source]
+url = "https://example.com/x.msi"
+filename = "x.msi"
+[package.install]
+kind = "msi"
+[package.detect]
+kind = "none"
+
+[[package]]
+id = "other"
+name = "Other"
+version = "1"
+arch = "x86"
+order = 3
+[package.source]
+url = "https://example.com/o.exe"
+filename = "o.exe"
+[package.install]
+kind = "exe"
+args = ""
+[package.detect]
+kind = "none"
+
+[category]
+"#;
+        let text = text.trim_end().trim_end_matches("[category]");
+        let catalog = Catalog { categories: vec![crate::catalog::parse_category("t.toml", text).unwrap()] };
+        let index = BundleIndex {
+            format: 1,
+            app_version: String::new(),
+            created: 0,
+            files: vec![BundleFile { id: "xna".into(), filename: "x.msi".into(), size: 1, sha256: String::new(), offset: 0 }],
+        };
+        let trimmed = trim_catalog(&catalog, &Bundle::Folder { dir: PathBuf::new(), index });
+        let ids: Vec<&str> = trimmed.packages().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, vec!["xna"]);
+        assert!(trimmed.package("xna").unwrap().depends.is_empty(), "dependency outside the package dropped");
+    }
 
     fn tmp(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("caior-bundle-{}-{name}", std::process::id()));

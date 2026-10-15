@@ -127,6 +127,7 @@ C:\temp\caior-offline.exe pack --profile recommended --folder --out C:\temp\caio
 - [ ] Küçük bir seçimle **Sadece indir**, hemen **Küçült**: sağ altta kart çıkıyor, bitince kart yaklaşık 8 sn sonra kapanıyor ve `caior.exe` Görev Yöneticisi'nden de kayboluyor (önceden görünmez açık kalıyordu).
 - [ ] Aynısını yap ama **İptal** et: kart açık kalıyor, X ile kapanınca uygulama kapanıyor; kartın büyütme simgesi ana pencereyi geri getiriyor.
 - [ ] Kurulum yokken pencereyi kapatmak uygulamayı kapatıyor.
+- [ ] Offline paket exe'si (T4'teki `C:\temp\caior-offline.exe` ya da küçük bir paket: `caior pack --id openal --out C:\temp\mini.exe`) açılınca: sadece içindeki paketler listeleniyor, "Hepsi" seçili; sol menüde "Offline paket" yok; "Sadece indir" düğmesi yok; alt çubuk "... bu paketten N MB" diyor; sol altta "N kurulum dosyalı offline paket" yazıyor. İnternet kapalıyken de aynı.
 
 ## 4. Rapor
 

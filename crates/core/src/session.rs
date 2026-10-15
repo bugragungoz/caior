@@ -180,6 +180,8 @@ fn start_downloads<'a>(
     packages: Vec<&'a Package>,
     cache: &'a Cache,
     jobs: usize,
+    // Running from an offline package: take files from it only, never the network.
+    offline: bool,
     cancel: &'a AtomicBool,
     emit: &'a (dyn Fn(Event) + Sync),
 ) -> mpsc::Receiver<(String, FetchResult)> {
@@ -214,7 +216,12 @@ fn start_downloads<'a>(
                         emit(Event::Downloading { id: pkg.id.clone(), done, total });
                     }
                 };
-                let r = fetch::fetch(&client, pkg, cache, cancel, &mut progress).map_err(|e| e.to_string());
+                let r = if offline {
+                    fetch::from_cache(pkg, cache)
+                } else {
+                    fetch::fetch(&client, pkg, cache, cancel, &mut progress)
+                }
+                .map_err(|e| e.to_string());
                 if let Ok(f) = &r {
                     emit(Event::Downloaded { id: pkg.id.clone(), size: f.verified.size, from_cache: f.from_cache });
                 }
@@ -252,16 +259,18 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
         emit(Event::Skipped { id: s.id.clone(), reason: serde_json::to_string(&s.reason).unwrap_or_default() });
     }
 
-    // An offline package next to (or inside) this exe serves as the cache.
-    // Anything it lacks is still downloaded when there is a connection.
-    let cache_dir = match crate::bundle::current() {
+    // An offline package next to (or inside) this exe serves as the cache, and
+    // it is the only source: such an exe never downloads anything.
+    let bundle = crate::bundle::current();
+    let offline = bundle.is_some();
+    let cache_dir = match bundle {
         Some(b) => {
             let dir = crate::bundle::cache_dir(&b, &opts.cache_dir);
             let ids: Vec<String> = items.iter().map(|p| p.id.clone()).collect();
             match crate::bundle::prepare(&b, &ids, &dir) {
                 Ok(p) if !p.damaged.is_empty() => emit(Event::Failed {
                     id: "offline-package".into(),
-                    error: format!("damaged in the offline package, downloading instead: {}", p.damaged.join(", ")),
+                    error: format!("damaged in the offline package: {}", p.damaged.join(", ")),
                 }),
                 Ok(_) => {}
                 Err(e) => emit(Event::Failed { id: "offline-package".into(), error: e.to_string() }),
@@ -288,7 +297,7 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
 
     std::thread::scope(|scope| {
         let downloadable: Vec<&Package> = items.iter().copied().filter(|p| p.source.is_some()).collect();
-        let rx = start_downloads(scope, downloadable, &cache, opts.download_jobs, cancel, emit);
+        let rx = start_downloads(scope, downloadable, &cache, opts.download_jobs, offline, cancel, emit);
         let mut ready: HashMap<String, FetchResult> = HashMap::new();
         let mut wait_for = |id: &str| -> FetchResult {
             while !ready.contains_key(id) {

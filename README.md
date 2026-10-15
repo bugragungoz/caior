@@ -1,5 +1,7 @@
 # CAIOR
 
+> **Not fully tested yet.** Early release: try it on a test PC or a virtual machine before you rely on it.
+
 Sets up the runtimes a fresh Windows needs, in one go: Visual C++ 2005 to v14, .NET Framework and .NET 6 to 10, DirectX, Java, WebView2, Windows App Runtime, WinGet, XNA, OpenAL, PhysX and more. Installs are silent, you approve administrator access once, and it works without internet too.
 
 ![CAIOR](docs/screenshots/main.png)
@@ -14,7 +16,7 @@ The exe is not code-signed yet, so SmartScreen may warn the first time. Compare 
 
 Open `caior.exe`, pick a profile or single packages, then select **Install**. CAIOR checks what your PC already has, downloads only what is missing, verifies every file and installs it silently. Minimize the window and a small card in the bottom-right corner keeps showing progress.
 
-For a PC without internet, open **Offline package**. CAIOR downloads and verifies the packages, then writes one `.exe` (or a folder) that installs them on any PC.
+For a PC without internet, open **Offline package**. CAIOR downloads and verifies the packages, then writes one `.exe` (or a folder) that installs them on any PC. That exe is a trimmed CAIOR: it lists only the packages it carries and never downloads anything.
 
 From a terminal:
 

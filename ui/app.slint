@@ -302,7 +302,8 @@ export component MainWindow inherits Window {
                     active: root.page == 0 || root.page == 1;
                     clicked => { root.page = AppState.busy || AppState.finished ? 1 : 0; }
                 }
-                NavItem { text: @tr("Offline package"); icon: Icons.offline; active: root.page == 2; clicked => { root.page = 2; } }
+                // An offline package cannot make another one: it has no catalog to download from.
+                if root.bundled-count == 0: NavItem { text: @tr("Offline package"); icon: Icons.offline; active: root.page == 2; clicked => { root.page = 2; } }
                 NavItem { text: @tr("Logs"); icon: Icons.history; active: root.page == 3; clicked => { root.page = 3; } }
                 NavItem { text: @tr("Settings"); icon: Icons.settings; active: root.page == 4; clicked => { root.page = 4; } }
                 Rectangle { vertical-stretch: 1; }
@@ -347,7 +348,9 @@ export component MainWindow inherits Window {
                     letter-spacing: Theme.type-h2-spacing;
                 }
                 Text {
-                    text: @tr("Pick what this PC is missing and install it in one go. Everything installs silently.");
+                    text: root.bundled-count > 0
+                        ? @tr("This offline package installs what it carries, without internet. Pick what this PC is missing.")
+                        : @tr("Pick what this PC is missing and install it in one go. Everything installs silently.");
                     color: Theme.muted;
                     font-size: Theme.type-lead-size;
                     wrap: word-wrap;
@@ -534,7 +537,7 @@ export component MainWindow inherits Window {
             alignment: space-between;
             Text {
                 text: root.page == 0
-                    ? (root.selected-count == 0 ? @tr("Nothing selected") : @tr("{} selected, about {} MB to download", root.selected-count, root.selected-mb))
+                    ? (root.selected-count == 0 ? @tr("Nothing selected") : root.bundled-count > 0 ? @tr("{} selected, {} MB from this package", root.selected-count, root.selected-mb) : @tr("{} selected, about {} MB to download", root.selected-count, root.selected-mb))
                     : (AppState.finished ? AppState.counter : AppState.stage-text);
                 color: Theme.muted;
                 font-size: Theme.type-small-size;
@@ -545,7 +548,7 @@ export component MainWindow inherits Window {
                 alignment: end;
                 padding-top: 14px;
                 padding-bottom: 14px;
-                if root.page == 0: Button {
+                if root.page == 0 && root.bundled-count == 0: Button {
                     text: @tr("Download only");
                     kind: ButtonKind.outline;
                     enabled: root.can-install;

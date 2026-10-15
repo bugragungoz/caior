@@ -226,6 +226,11 @@ fn main() {
 
 fn run(cli: Cli) -> Result<i32> {
     let catalog = load_catalog(&cli.catalog)?;
+    // An offline package is a trimmed CAIOR: it only knows what it carries.
+    let catalog = match caior_core::bundle::current() {
+        Some(b) => caior_core::bundle::trim_catalog(&catalog, &b),
+        None => catalog,
+    };
     match cli.command {
         None => gui::run(catalog).map(|()| 0),
         Some(Command::Detect { json, all }) => detect_cmd(&catalog, json, all).map(|()| 0),

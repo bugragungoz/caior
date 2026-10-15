@@ -234,3 +234,9 @@ msgstr "derleme {}"
 
 msgid "Close"
 msgstr "Kapat"
+
+msgid "This offline package installs what it carries, without internet. Pick what this PC is missing."
+msgstr "Bu offline paket, içindekileri internetsiz kurar. Bu bilgisayarda eksik olanları seçin."
+
+msgid "{} selected, {} MB from this package"
+msgstr "{} seçili, bu paketten {} MB"

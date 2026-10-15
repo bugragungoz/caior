@@ -367,6 +367,10 @@ pub fn run(catalog: Catalog) -> Result<()> {
     );
     main.set_os_build(sys.build() as i32);
     main.set_bundled_count(caior_core::bundle::current().map_or(0, |b| b.index().files.len() as i32));
+    // An offline package starts with everything it carries selected.
+    if main.get_bundled_count() > 0 {
+        main.set_profile(4);
+    }
     main.set_log_dir(data_dir().join("logs").display().to_string().into());
     let desktop = PathBuf::from(std::env::var("USERPROFILE").unwrap_or_else(|_| r"C:\Users\Public".into())).join("Desktop");
     main.set_pack_path(desktop.join("CAIOR-Offline.exe").display().to_string().into());
@@ -393,7 +397,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
         selected: HashSet::new(),
         row_ids: Vec::new(),
         turkish,
-        profile: 0,
+        profile: main.get_profile(),
     }));
     let rows_model = Rc::new(VecModel::<PackageRow>::default());
     main.set_rows(ModelRc::from(rows_model.clone()));

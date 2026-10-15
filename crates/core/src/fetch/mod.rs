@@ -28,6 +28,8 @@ pub enum FetchError {
     Status { status: u16, url: String },
     #[error("cancelled")]
     Cancelled,
+    #[error("{0} is not in this offline package")]
+    NotInPackage(String),
     #[error("{0}")]
     Verify(#[from] VerifyError),
     #[error("cannot unpack {entry:?}: {message}")]
@@ -285,6 +287,22 @@ fn extract(zip_path: &Path, entry: &str, dest: &Path) -> Result<(), FetchError> 
     drop(w);
     fs::rename(&tmp, dest)?;
     Ok(())
+}
+
+/// Offline packages: the cached copy (from the package) or nothing. Never
+/// touches the network; the file is verified like a download.
+pub fn from_cache(pkg: &Package, cache: &Cache) -> Result<Fetched, FetchError> {
+    let src = pkg.source.as_ref().ok_or_else(|| FetchError::NoSource(pkg.id.clone()))?;
+    let download = cache.download_path(pkg, src);
+    if !download.is_file() {
+        return Err(FetchError::NotInPackage(pkg.id.clone()));
+    }
+    let installer = cache.installer_path(pkg, src);
+    if let Some(x) = &src.extract {
+        extract(&download, &x.entry, &installer)?;
+    }
+    let verified = verify(src, &download, &installer)?;
+    Ok(Fetched { installer, download, verified, from_cache: true })
 }
 
 /// Makes sure the package's installer is in the cache and verified. A cached
