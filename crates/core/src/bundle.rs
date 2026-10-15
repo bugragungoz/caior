@@ -68,6 +68,20 @@ fn now_secs() -> u64 {
 
 /// Reads the index appended to an exe, if there is one.
 pub fn read_exe_index(path: &Path) -> io::Result<Option<BundleIndex>> {
+    Ok(read_footer(path)?.map(|(index, _)| index))
+}
+
+/// Length of the program part of an exe: everything before the appended
+/// installers, or before the index when the bundle holds no files.
+pub fn program_len(exe: &Path) -> io::Result<u64> {
+    Ok(match read_footer(exe)? {
+        Some((index, index_offset)) => index.files.iter().map(|f| f.offset).fold(index_offset, u64::min),
+        None => fs::metadata(exe)?.len(),
+    })
+}
+
+/// The appended index and where it starts.
+fn read_footer(path: &Path) -> io::Result<Option<(BundleIndex, u64)>> {
     let mut f = File::open(path)?;
     let len = f.metadata()?.len();
     if len < FOOTER_LEN {
@@ -87,7 +101,8 @@ pub fn read_exe_index(path: &Path) -> io::Result<Option<BundleIndex>> {
     f.seek(SeekFrom::Start(offset))?;
     let mut buf = vec![0u8; size as usize];
     f.read_exact(&mut buf)?;
-    serde_json::from_slice(&buf).map(Some).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    let index = serde_json::from_slice(&buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    Ok(Some((index, offset)))
 }
 
 /// Finds the bundle the running exe belongs to: appended data first, then a
@@ -112,12 +127,22 @@ pub fn cache_dir(bundle: &Bundle, default: &Path) -> PathBuf {
     }
 }
 
+/// What `prepare` did.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Prepared {
+    pub extracted: usize,
+    /// Packages whose bytes in the bundle do not match their hash. They are
+    /// left out; the session downloads them when it can.
+    pub damaged: Vec<String>,
+}
+
 /// Extracts the given packages from a single-exe bundle into the cache. Files
-/// already present with the right hash are kept.
-pub fn prepare(bundle: &Bundle, ids: &[String], cache: &Path) -> io::Result<usize> {
-    let Bundle::Exe { path, index } = bundle else { return Ok(0) };
+/// already present with the right hash are kept. A damaged file does not stop
+/// the others from being extracted.
+pub fn prepare(bundle: &Bundle, ids: &[String], cache: &Path) -> io::Result<Prepared> {
+    let Bundle::Exe { path, index } = bundle else { return Ok(Prepared::default()) };
     let mut src = File::open(path)?;
-    let mut extracted = 0;
+    let mut done = Prepared::default();
     for f in index.files.iter().filter(|f| ids.contains(&f.id)) {
         let dest = cache.join(&f.id).join(&f.filename);
         if dest.is_file() && sha256_file(&dest).map(|(_, h)| h == f.sha256).unwrap_or(false) {
@@ -133,12 +158,13 @@ pub fn prepare(bundle: &Bundle, ids: &[String], cache: &Path) -> io::Result<usiz
         let (_, hash) = sha256_file(&tmp)?;
         if hash != f.sha256 {
             let _ = fs::remove_file(&tmp);
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{} is damaged in the offline package", f.id)));
+            done.damaged.push(f.id.clone());
+            continue;
         }
         fs::rename(&tmp, &dest)?;
-        extracted += 1;
+        done.extracted += 1;
     }
-    Ok(extracted)
+    Ok(done)
 }
 
 /// The cached download of each package, ready to be bundled.
@@ -160,11 +186,21 @@ pub fn collect(catalog: &Catalog, ids: &[String], cache: &Cache) -> io::Result<V
     Ok(out)
 }
 
-/// Writes `caior.exe` + `caior-packages/` into `out_dir`.
+/// Copies the program part of `exe` (without any appended bundle) to `out`.
+fn copy_program(exe: &Path, out: &Path) -> io::Result<()> {
+    let len = program_len(exe)?;
+    let mut w = BufWriter::new(File::create(out)?);
+    io::copy(&mut File::open(exe)?.take(len), &mut w)?;
+    w.flush()
+}
+
+/// Writes `caior.exe` + `caior-packages/` into `out_dir`. When `exe` is a
+/// single-file bundle itself, only its program part is copied: the folder
+/// carries the installers, and an appended bundle would hide it.
 pub fn write_folder(exe: &Path, files: &[(BundleFile, PathBuf)], out_dir: &Path) -> io::Result<PathBuf> {
     let pkgs = out_dir.join(FOLDER_NAME);
     fs::create_dir_all(&pkgs)?;
-    fs::copy(exe, out_dir.join("caior.exe"))?;
+    copy_program(exe, &out_dir.join("caior.exe"))?;
     for (f, path) in files {
         let dest = pkgs.join(&f.id).join(&f.filename);
         fs::create_dir_all(dest.parent().unwrap())?;
@@ -183,10 +219,7 @@ pub fn write_folder(exe: &Path, files: &[(BundleFile, PathBuf)], out_dir: &Path)
 /// Writes one exe with every installer appended. `exe` must be a plain CAIOR
 /// exe; if it already carries a bundle, only its program part is copied.
 pub fn write_exe(exe: &Path, files: &[(BundleFile, PathBuf)], out: &Path) -> io::Result<()> {
-    let program_len = match read_exe_index(exe)? {
-        Some(index) => index.files.iter().map(|f| f.offset).min().unwrap_or(0),
-        None => fs::metadata(exe)?.len(),
-    };
+    let program_len = program_len(exe)?;
     if let Some(dir) = out.parent() {
         fs::create_dir_all(dir)?;
     }
@@ -265,9 +298,9 @@ mod tests {
 
         let bundle = Bundle::Exe { path: out.clone(), index };
         let cache = d.join("cache");
-        assert_eq!(prepare(&bundle, &["b".into()], &cache).unwrap(), 1);
+        assert_eq!(prepare(&bundle, &["b".into()], &cache).unwrap().extracted, 1);
         assert_eq!(fs::read(cache.join("b").join("b.msi")).unwrap(), vec![7u8; 100_000]);
-        assert_eq!(prepare(&bundle, &["b".into()], &cache).unwrap(), 0, "already extracted");
+        assert_eq!(prepare(&bundle, &["b".into()], &cache).unwrap().extracted, 0, "already extracted");
 
         // Re-bundling from a bundled exe keeps only the program part.
         let again = d.join("again.exe");
@@ -292,7 +325,39 @@ mod tests {
         let index = read_exe_index(&out).unwrap().unwrap();
         assert_eq!(index.files.len(), 3);
         let bundle = Bundle::Exe { path: out, index };
-        assert_eq!(prepare(&bundle, &["a".into(), "c".into()], &d.join("cache")).unwrap(), 2);
+        assert_eq!(prepare(&bundle, &["a".into(), "c".into()], &d.join("cache")).unwrap().extracted, 2);
+    }
+
+    #[test]
+    fn empty_bundle_keeps_its_program_when_rebundled() {
+        let d = tmp("empty");
+        let exe = d.join("caior.exe");
+        fs::write(&exe, b"MZ program").unwrap();
+        let empty = d.join("empty.exe");
+        write_exe(&exe, &[], &empty).unwrap();
+        assert_eq!(program_len(&empty).unwrap(), 10);
+        let a = d.join("a.exe");
+        fs::write(&a, b"installer").unwrap();
+        let again = d.join("again.exe");
+        let file = BundleFile { id: "a".into(), filename: "a.exe".into(), size: 0, sha256: String::new(), offset: 0 };
+        write_exe(&empty, &[(file, a)], &again).unwrap();
+        assert!(fs::read(&again).unwrap().starts_with(b"MZ program"));
+        assert_eq!(read_exe_index(&again).unwrap().unwrap().files[0].offset, 10);
+    }
+
+    #[test]
+    fn folder_bundle_gets_the_plain_program() {
+        let d = tmp("folder");
+        let exe = d.join("caior.exe");
+        fs::write(&exe, b"MZ program").unwrap();
+        let a = d.join("a.exe");
+        fs::write(&a, b"installer").unwrap();
+        let file = BundleFile { id: "a".into(), filename: "a.exe".into(), size: 0, sha256: String::new(), offset: 0 };
+        let single = d.join("single.exe");
+        write_exe(&exe, &[(file.clone(), a.clone())], &single).unwrap();
+        let out = write_folder(&single, &[(file, a)], &d.join("out")).unwrap();
+        assert_eq!(fs::read(&out).unwrap(), b"MZ program");
+        assert!(d.join("out").join(FOLDER_NAME).join("a").join("a.exe").is_file());
     }
 
     #[test]
@@ -308,8 +373,9 @@ mod tests {
         bytes[3] ^= 0xff; // flip a payload byte
         fs::write(&out, bytes).unwrap();
         let index = read_exe_index(&out).unwrap().unwrap();
-        let err = prepare(&Bundle::Exe { path: out, index }, &["a".into()], &d.join("cache")).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        let done = prepare(&Bundle::Exe { path: out, index }, &["a".into()], &d.join("cache")).unwrap();
+        assert_eq!(done, Prepared { extracted: 0, damaged: vec!["a".into()] });
+        assert!(!d.join("cache").join("a").join("a.exe").exists());
     }
 }
 

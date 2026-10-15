@@ -183,10 +183,26 @@ impl Gui {
                 None => p == id,
             })
         };
-        self.selected = ids
+        let ids: Vec<String> = ids.into_iter().filter(|id| !excluded(id)).collect();
+        // "Everything" lists both bitnesses of packages that cannot sit side by side.
+        self.selected = plan::resolve_conflicts(&self.catalog, &self.sys, ids)
             .into_iter()
-            .filter(|id| !matches!(self.states.get(id), Some(State::Installed { .. })) && !excluded(id))
+            .filter(|id| !matches!(self.states.get(id), Some(State::Installed { .. })))
             .collect();
+    }
+
+    /// Selects or clears one package. Selecting it clears the packages it
+    /// conflicts with, so the selection always forms a valid plan.
+    fn toggle(&mut self, id: String) {
+        if self.selected.remove(&id) {
+            return;
+        }
+        if let Some(p) = self.catalog.package(&id) {
+            for other in &p.conflicts {
+                self.selected.remove(other);
+            }
+        }
+        self.selected.insert(id);
     }
 
     /// What an offline package gets: the whole profile (installed or not) plus
@@ -337,47 +353,62 @@ pub fn run(catalog: Catalog) -> Result<()> {
     };
     let refresh = Rc::new(refresh);
 
-    // Detection runs off the UI thread (WindowsProbe is created there); the
-    // result is handed over through a mutex and a callback on the UI thread.
+    // Detection runs off the UI thread (WindowsProbe is created there; WMI
+    // queries can take seconds); the result is handed over through a mutex
+    // and a callback on the UI thread. It runs at start and after each session.
     let detected: Arc<std::sync::Mutex<Vec<(String, State)>>> = Arc::default();
-    {
+    let spawn_detection = {
         let main_weak = main.as_weak();
         let catalog = catalog.clone();
         let sys = sys.clone();
         let detected = detected.clone();
-        std::thread::spawn(move || {
-            let probe = detect::WindowsProbe::new();
-            let states: Vec<(String, State)> = detect::detect_all(&catalog, &sys, &probe)
-                .into_iter()
-                .filter_map(|s| match s.state {
-                    detect::Status::Detected(st) => Some((s.id, st)),
-                    detect::Status::NotApplicable { .. } => None,
-                })
-                .collect();
-            *detected.lock().unwrap() = states;
-            let _ = main_weak.upgrade_in_event_loop(|main| main.invoke_detection_done());
-        });
-    }
+        move || {
+            let (main_weak, catalog, sys, detected) = (main_weak.clone(), catalog.clone(), sys.clone(), detected.clone());
+            std::thread::spawn(move || {
+                let probe = detect::WindowsProbe::new();
+                let states: Vec<(String, State)> = detect::detect_all(&catalog, &sys, &probe)
+                    .into_iter()
+                    .filter_map(|s| match s.state {
+                        detect::Status::Detected(st) => Some((s.id, st)),
+                        detect::Status::NotApplicable { .. } => None,
+                    })
+                    .collect();
+                *detected.lock().unwrap() = states;
+                let _ = main_weak.upgrade_in_event_loop(|main| main.invoke_detection_done());
+            });
+        }
+    };
+    spawn_detection();
 
     {
         let gui = gui.clone();
         let refresh = refresh.clone();
         let main_weak = main.as_weak();
         let card_for_test = card.as_weak();
+        let first = std::cell::Cell::new(true);
         main.on_detection_done(move || {
+            let Some(m) = main_weak.upgrade() else { return };
+            let first = first.replace(false);
             {
                 let mut g = gui.borrow_mut();
                 for (id, st) in std::mem::take(&mut *detected.lock().unwrap()) {
                     g.states.insert(id, st);
                 }
-                g.select_profile(ProfileChoice::Recommended);
+                // After a session: keep the profile, drop what is installed now.
+                let profile = if first { 0 } else { m.get_profile() };
+                if profile != 5 {
+                    g.select_profile(ProfileChoice::from_index(profile));
+                } else {
+                    let states = g.states.clone();
+                    g.selected.retain(|id| !matches!(states.get(id), Some(State::Installed { .. })));
+                }
             }
-            if let Some(m) = main_weak.upgrade() {
-                m.set_loading(false);
-            }
+            m.set_loading(false);
             refresh();
-            schedule_snapshot(&main_weak);
-            schedule_autotest(&main_weak, &card_for_test);
+            if first {
+                schedule_snapshot(&main_weak);
+                schedule_autotest(&main_weak, &card_for_test);
+            }
         });
     }
 
@@ -407,9 +438,7 @@ pub fn run(catalog: Catalog) -> Result<()> {
                 if !applicable {
                     return;
                 }
-                if !g.selected.remove(&id) {
-                    g.selected.insert(id);
-                }
+                g.toggle(id);
                 g.profile = 5;
             }
             if let Some(m) = main_weak.upgrade() {
@@ -436,8 +465,15 @@ pub fn run(catalog: Catalog) -> Result<()> {
             let pack = mode == 2;
             let g = gui.borrow();
             let ids: Vec<String> = if pack { g.pack_ids() } else { g.selected.iter().cloned().collect() };
-            let opts = PlanOptions { reinstall: pack };
-            let Ok(plan) = plan::build(&g.catalog, &g.sys, &g.states, &ids, opts) else { return };
+            let opts = PlanOptions { reinstall: pack, download_only };
+            let plan = match plan::build(&g.catalog, &g.sys, &g.states, &ids, opts) {
+                Ok(plan) => plan,
+                Err(e) => {
+                    // The selection rules above keep this from happening.
+                    eprintln!("Error: {e}");
+                    return;
+                }
+            };
             progress_model.set_vec(
                 plan.install
                     .iter()
@@ -581,33 +617,8 @@ pub fn run(catalog: Catalog) -> Result<()> {
         main.on_create_package(move || start(2));
     }
 
-    // After a session: detect again so the list shows the new state.
-    {
-        let gui = gui.clone();
-        let refresh = refresh.clone();
-        let main_weak = main.as_weak();
-        main.on_session_ended(move || {
-            let Some(main) = main_weak.upgrade() else { return };
-            let catalog = gui.borrow().catalog.clone();
-            let sys = gui.borrow().sys.clone();
-            let probe = detect::WindowsProbe::new();
-            let mut g = gui.borrow_mut();
-            for s in detect::detect_all(&catalog, &sys, &probe) {
-                if let detect::Status::Detected(st) = s.state {
-                    g.states.insert(s.id, st);
-                }
-            }
-            let profile = main.get_profile();
-            if profile != 5 {
-                g.select_profile(ProfileChoice::from_index(profile));
-            } else {
-                let states = g.states.clone();
-                g.selected.retain(|id| !matches!(states.get(id), Some(State::Installed { .. })));
-            }
-            drop(g);
-            refresh();
-        });
-    }
+    // After a session: detect again (in the background) so the list shows the new state.
+    main.on_session_ended(spawn_detection);
 
     {
         let main_weak = main.as_weak();

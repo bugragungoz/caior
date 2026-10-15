@@ -10,5 +10,7 @@ pub mod elevate;
 pub mod fetch;
 pub mod install;
 pub mod plan;
+#[cfg(windows)]
+pub mod secure_dir;
 pub mod session;
 pub mod version;

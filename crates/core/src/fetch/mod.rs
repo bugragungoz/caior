@@ -24,6 +24,8 @@ pub enum FetchError {
     NoSource(String),
     #[error("download failed: {0}")]
     Http(String),
+    #[error("download failed: HTTP {status} from {url}")]
+    Status { status: u16, url: String },
     #[error("cancelled")]
     Cancelled,
     #[error("{0}")]
@@ -152,26 +154,36 @@ pub fn verify(src: &Source, download: &Path, installer: &Path) -> Result<Verifie
     Ok(Verified { size, sha256, signature })
 }
 
+/// How long a download may go without receiving a byte before it is
+/// dropped (and resumed by the next attempt).
+const STALL_TIMEOUT: Duration = Duration::from_secs(60);
+/// Attempts per URL for network errors and server-side (5xx) failures.
+const ATTEMPTS_PER_URL: u32 = 3;
+
 pub fn http_client() -> reqwest::Result<reqwest::blocking::Client> {
+    // The blocking client applies `timeout` to sending the request and to
+    // each read of the body, not to the whole download, so large files are
+    // fine and a stalled connection fails instead of hanging forever.
     reqwest::blocking::Client::builder()
         .user_agent(USER_AGENT)
         .redirect(reqwest::redirect::Policy::limited(15))
         .connect_timeout(Duration::from_secs(30))
-        .timeout(None)
+        .timeout(STALL_TIMEOUT)
         .build()
 }
 
 /// Download progress: bytes so far and the total when the server sends it.
 pub type ProgressFn<'a> = dyn FnMut(u64, Option<u64>) + 'a;
 
-/// Downloads `url` into `dest`, resuming from `dest.part` when the server supports ranges.
+/// Downloads `url` into `dest`, resuming from `dest.part` when the server
+/// supports ranges. Returns whether the download continued a partial file.
 fn download(
     client: &reqwest::blocking::Client,
     url: &str,
     dest: &Path,
     cancel: &AtomicBool,
     progress: &mut ProgressFn,
-) -> Result<(), FetchError> {
+) -> Result<bool, FetchError> {
     if let Some(dir) = dest.parent() {
         fs::create_dir_all(dir)?;
     }
@@ -179,15 +191,26 @@ fn download(
         "{}.part",
         dest.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
     ));
+    let send = |from: u64| {
+        let mut req = client.get(url);
+        if from > 0 {
+            req = req.header(reqwest::header::RANGE, format!("bytes={from}-"));
+        }
+        req.send().map_err(|e| FetchError::Http(e.to_string()))
+    };
     let have = fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
-    let mut req = client.get(url);
-    if have > 0 {
-        req = req.header(reqwest::header::RANGE, format!("bytes={have}-"));
+    let mut resp = send(have)?;
+    if have > 0 && resp.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+        // The partial file does not fit the file the server has now (it is
+        // complete already, or the URL serves a newer build). Start over;
+        // keeping it would fail every later attempt the same way.
+        drop(resp);
+        let _ = fs::remove_file(&part);
+        resp = send(0)?;
     }
-    let mut resp = req.send().map_err(|e| FetchError::Http(e.to_string()))?;
     let status = resp.status();
     if !status.is_success() {
-        return Err(FetchError::Http(format!("HTTP {status} from {url}")));
+        return Err(FetchError::Status { status: status.as_u16(), url: url.to_string() });
     }
     let resumed = status == reqwest::StatusCode::PARTIAL_CONTENT;
     let mut done = if resumed { have } else { 0 };
@@ -218,20 +241,47 @@ fn download(
             return Err(FetchError::Http(format!("connection closed after {done} of {t} bytes")));
         }
     fs::rename(&part, dest)?;
-    Ok(())
+    Ok(resumed)
 }
 
-fn extract(zip_path: &Path, entry: &str, dest: &Path) -> Result<(), FetchError> {
+/// Worth another try on the same URL: the connection broke or the server had
+/// a temporary problem. A 404 or 403 will not change.
+fn is_transient(e: &FetchError) -> bool {
+    match e {
+        FetchError::Http(_) => true,
+        FetchError::Status { status, .. } => *status >= 500 || *status == 408 || *status == 429,
+        _ => false,
+    }
+}
+
+/// Sleeps in small steps so a cancel request is not held up.
+fn pause(d: Duration, cancel: &AtomicBool) {
+    let until = std::time::Instant::now() + d;
+    while std::time::Instant::now() < until && !cancel.load(Ordering::Relaxed) {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Writes the archive entry `entry` (matched case-insensitively) to `out`.
+/// The zip reader checks the entry's CRC as it reads.
+pub(crate) fn unzip_entry<R: Read + io::Seek>(archive: R, entry: &str, out: &mut impl Write) -> Result<(), FetchError> {
     let err = |message: String| FetchError::Extract { entry: entry.to_string(), message };
-    let mut archive = zip::ZipArchive::new(File::open(zip_path)?).map_err(|e| err(e.to_string()))?;
+    let mut archive = zip::ZipArchive::new(archive).map_err(|e| err(e.to_string()))?;
     let wanted = entry.replace('\\', "/").to_ascii_lowercase();
     let index = (0..archive.len())
         .find(|&i| archive.by_index(i).is_ok_and(|f| f.name().to_ascii_lowercase() == wanted))
         .ok_or_else(|| err("not found in the archive".into()))?;
     let mut f = archive.by_index(index).map_err(|e| err(e.to_string()))?;
+    io::copy(&mut f, out).map_err(|e| err(e.to_string()))?;
+    Ok(())
+}
+
+fn extract(zip_path: &Path, entry: &str, dest: &Path) -> Result<(), FetchError> {
     let tmp = dest.with_extension("unpack");
-    let mut w = File::create(&tmp)?;
-    io::copy(&mut f, &mut w)?;
+    // Never write into a file someone else left there; start from a new one.
+    let _ = fs::remove_file(&tmp);
+    let mut w = File::create_new(&tmp)?;
+    unzip_entry(File::open(zip_path)?, entry, &mut w)?;
     drop(w);
     fs::rename(&tmp, dest)?;
     Ok(())
@@ -267,16 +317,36 @@ pub fn fetch(
 
     let mut last = None;
     for url in std::iter::once(&src.url).chain(&src.fallback_urls) {
-        match download(client, url, &download_path, cancel, progress).and_then(|()| prepare(false)) {
-            Ok(f) => return Ok(f),
-            Err(FetchError::Cancelled) => return Err(FetchError::Cancelled),
-            Err(e) => {
-                // A bad file must not survive to be "resumed" or reused.
-                if matches!(e, FetchError::Verify(_)) {
-                    let _ = fs::remove_file(&download_path);
-                }
-                last = Some(e);
+        for attempt in 1..=ATTEMPTS_PER_URL {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(FetchError::Cancelled);
             }
+            let retry = match download(client, url, &download_path, cancel, progress) {
+                Ok(resumed) => match prepare(false) {
+                    Ok(f) => return Ok(f),
+                    Err(e) => {
+                        // A bad file must not survive to be "resumed" or reused.
+                        let bad_file = matches!(e, FetchError::Verify(_) | FetchError::Extract { .. });
+                        if bad_file {
+                            let _ = fs::remove_file(&download_path);
+                        }
+                        last = Some(e);
+                        // The first part may have come from an older build of an
+                        // evergreen file: one more try from scratch.
+                        resumed && bad_file
+                    }
+                },
+                Err(FetchError::Cancelled) => return Err(FetchError::Cancelled),
+                Err(e) => {
+                    let retry = is_transient(&e);
+                    last = Some(e);
+                    retry
+                }
+            };
+            if !retry || attempt == ATTEMPTS_PER_URL {
+                break;
+            }
+            pause(Duration::from_secs(2 * u64::from(attempt)), cancel);
         }
     }
     Err(last.unwrap_or_else(|| FetchError::NoSource(pkg.id.clone())))
@@ -318,6 +388,59 @@ mod tests {
             verify(&source(Some(&bad), false, &[]), &p, &p),
             Err(FetchError::Verify(VerifyError::HashMismatch { .. }))
         ));
+    }
+
+    /// Serves `body` on 127.0.0.1; requests with a Range header get 416.
+    fn serve_without_ranges(body: &'static [u8]) -> String {
+        use std::io::{BufRead, BufReader};
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut ranged = false;
+                let mut line = String::new();
+                while reader.read_line(&mut line).is_ok_and(|n| n > 0) && line != "\r\n" {
+                    ranged |= line.to_ascii_lowercase().starts_with("range:");
+                    line.clear();
+                }
+                let mut out = stream;
+                let reply = if ranged {
+                    "HTTP/1.1 416 Range Not Satisfiable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+                } else {
+                    format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())
+                };
+                let _ = out.write_all(reply.as_bytes());
+                if !ranged {
+                    let _ = out.write_all(body);
+                }
+            }
+        });
+        format!("http://{addr}/file.bin")
+    }
+
+    #[test]
+    fn stale_partial_file_is_dropped_on_416() {
+        let url = serve_without_ranges(b"fresh content");
+        let dir = temp_file("x", b"").parent().unwrap().join("dl416");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let dest = dir.join("file.bin");
+        fs::write(dir.join("file.bin.part"), b"leftover bytes that no longer fit").unwrap();
+        let client = reqwest::blocking::Client::builder().no_proxy().build().unwrap();
+        let resumed = download(&client, &url, &dest, &AtomicBool::new(false), &mut |_, _| {}).unwrap();
+        assert!(!resumed);
+        assert_eq!(fs::read(&dest).unwrap(), b"fresh content");
+        assert!(!dir.join("file.bin.part").exists());
+    }
+
+    #[test]
+    fn only_network_and_server_errors_are_retried() {
+        assert!(is_transient(&FetchError::Http("connection reset".into())));
+        assert!(is_transient(&FetchError::Status { status: 503, url: String::new() }));
+        assert!(!is_transient(&FetchError::Status { status: 404, url: String::new() }));
+        assert!(!is_transient(&FetchError::Cancelled));
     }
 
     #[test]

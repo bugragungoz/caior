@@ -12,6 +12,9 @@ use crate::detect::{NotApplicable, State, SystemInfo, applicability};
 pub struct PlanOptions {
     /// Install even when detection says the package is already there.
     pub reinstall: bool,
+    /// Download only (offline packages): conflicts do not matter, since
+    /// nothing is installed on this PC.
+    pub download_only: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -35,6 +38,8 @@ pub struct PlanItem {
 pub enum SkipReason {
     AlreadyInstalled { version: Option<String> },
     NotApplicable { why: NotApplicable },
+    /// A package it cannot live next to is already installed (ACE x86 next to x64).
+    ConflictInstalled { with: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,13 +71,40 @@ pub fn profile_ids(catalog: &Catalog, profile: Profile, sys: &SystemInfo) -> Vec
         .collect()
 }
 
-/// Every visible package that applies to this system.
+/// Every visible package that applies to this system. Both sides of a
+/// conflict are in the list; pass it through `resolve_conflicts` before
+/// installing.
 pub fn all_ids(catalog: &Catalog, sys: &SystemInfo) -> Vec<String> {
     catalog
         .packages()
         .filter(|p| !p.hidden && applicability(p, sys).is_ok())
         .map(|p| p.id.clone())
         .collect()
+}
+
+/// Keeps one package of each conflicting pair in `ids` (order is kept). The
+/// one built for this Windows architecture wins, then the one a profile
+/// picks, then the one listed first in the catalog. Used for automatic picks
+/// such as "Everything"; packages the user names explicitly should still
+/// fail in `build` so they choose.
+pub fn resolve_conflicts(catalog: &Catalog, sys: &SystemInfo, ids: Vec<String>) -> Vec<String> {
+    let position: HashMap<&str, usize> = catalog.packages().enumerate().map(|(i, p)| (p.id.as_str(), i)).collect();
+    let rank = |id: &str| {
+        let p = catalog.package(id);
+        (
+            p.is_none_or(|p| p.arch != sys.os_arch),
+            p.is_none_or(|p| p.profiles.is_empty()),
+            position.get(id).copied().unwrap_or(usize::MAX),
+        )
+    };
+    let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    let loses = |id: &str| {
+        catalog.package(id).is_some_and(|p| {
+            p.conflicts.iter().any(|other| wanted.contains(other.as_str()) && rank(other) < rank(id))
+        })
+    };
+    let keep: Vec<bool> = ids.iter().map(|id| !loses(id)).collect();
+    ids.into_iter().zip(keep).filter_map(|(id, k)| k.then_some(id)).collect()
 }
 
 pub fn build(
@@ -123,6 +155,12 @@ pub fn build(
             continue;
         }
         let state = states.get(&pkg.id).cloned().unwrap_or(State::Unknown { reason: "not detected".into() });
+        if !opts.download_only
+            && let Some(other) = pkg.conflicts.iter().find(|o| states.get(*o).is_some_and(State::is_installed))
+        {
+            plan.skipped.push(Skipped { id: pkg.id.clone(), reason: SkipReason::ConflictInstalled { with: other.clone() } });
+            continue;
+        }
         if let State::Installed { version } = &state
             && !opts.reinstall {
                 plan.skipped.push(Skipped {
@@ -134,11 +172,13 @@ pub fn build(
         plan.install.push(PlanItem { id: pkg.id.clone(), reason, state });
     }
 
-    let chosen: HashSet<&str> = plan.install.iter().map(|i| i.id.as_str()).collect();
-    for item in &plan.install {
-        for other in &by_id[item.id.as_str()].conflicts {
-            if chosen.contains(other.as_str()) {
-                return Err(PlanError::Conflict(item.id.clone(), other.clone()));
+    if !opts.download_only {
+        let chosen: HashSet<&str> = plan.install.iter().map(|i| i.id.as_str()).collect();
+        for item in &plan.install {
+            for other in &by_id[item.id.as_str()].conflicts {
+                if chosen.contains(other.as_str()) {
+                    return Err(PlanError::Conflict(item.id.clone(), other.clone()));
+                }
             }
         }
     }
@@ -256,7 +296,7 @@ kind = "none"
         let plan = build(&catalog, &sys, &states, &["winget".into()], PlanOptions::default()).unwrap();
         assert_eq!(plan.install.len(), 1);
         assert!(matches!(plan.skipped[0].reason, SkipReason::AlreadyInstalled { .. }));
-        let again = build(&catalog, &sys, &states, &["winget".into()], PlanOptions { reinstall: true }).unwrap();
+        let again = build(&catalog, &sys, &states, &["winget".into()], PlanOptions { reinstall: true, ..Default::default() }).unwrap();
         assert_eq!(again.install.len(), 2);
     }
 
@@ -267,6 +307,37 @@ kind = "none"
         assert!(matches!(err, Err(PlanError::Conflict(..))));
         let err = build(&catalog, &sys, &HashMap::new(), &["nope".into()], PlanOptions::default());
         assert_eq!(err.unwrap_err(), PlanError::UnknownPackage("nope".into()));
+    }
+
+    #[test]
+    fn conflicts_are_fine_when_only_downloading() {
+        let (catalog, sys) = setup();
+        let opts = PlanOptions { reinstall: true, download_only: true };
+        let plan = build(&catalog, &sys, &HashMap::new(), &["ace-x64".into(), "ace-x86".into()], opts).unwrap();
+        assert_eq!(plan.install.len(), 2);
+    }
+
+    #[test]
+    fn everything_keeps_one_side_of_a_conflict() {
+        let (catalog, mut sys) = setup();
+        let all = all_ids(&catalog, &sys);
+        assert!(all.contains(&"ace-x64".to_string()) && all.contains(&"ace-x86".to_string()));
+        let picked = resolve_conflicts(&catalog, &sys, all.clone());
+        assert_eq!(picked, vec!["winget", "ace-x64"], "native x64 wins on x64");
+        assert!(build(&catalog, &sys, &HashMap::new(), &picked, PlanOptions::default()).is_ok());
+        // On x86 Windows only the x86 build applies, so there is nothing to resolve.
+        sys.os_arch = Arch::X86;
+        let picked = resolve_conflicts(&catalog, &sys, all_ids(&catalog, &sys));
+        assert_eq!(picked, vec!["winget", "ace-x86"]);
+    }
+
+    #[test]
+    fn installed_conflict_skips_the_other_side() {
+        let (catalog, sys) = setup();
+        let states = HashMap::from([("ace-x64".to_string(), State::Installed { version: None })]);
+        let plan = build(&catalog, &sys, &states, &["ace-x86".into()], PlanOptions::default()).unwrap();
+        assert!(plan.install.is_empty());
+        assert!(matches!(&plan.skipped[0].reason, SkipReason::ConflictInstalled { with } if with == "ace-x64"));
     }
 
     #[test]

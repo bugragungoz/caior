@@ -97,6 +97,18 @@ impl SelectionArgs {
     }
 }
 
+/// A mistake in the command line (exit code 2), as opposed to a failed run.
+#[derive(Debug)]
+pub struct Usage(pub String);
+
+impl std::fmt::Display for Usage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Usage {}
+
 fn matches(patterns: &[String], id: &str) -> bool {
     patterns.iter().any(|pat| match pat.strip_suffix('*') {
         Some(prefix) => id.starts_with(prefix),
@@ -104,31 +116,43 @@ fn matches(patterns: &[String], id: &str) -> bool {
     })
 }
 
-/// Detects, resolves the selection and builds the plan.
-fn make_plan(catalog: &Catalog, sys: &SystemInfo, sel: &SelectionArgs) -> Result<Plan> {
-    let mut ids: Vec<String> = Vec::new();
+/// Resolves profiles, `--id` and `--exclude` into package ids. Profiles may
+/// hold both sides of a conflict ("all" does); for an install one side is
+/// kept, and a package named with `--id` wins over the profile's pick.
+/// Packages named with `--id` that conflict with each other stay, so the
+/// plan asks the user to choose. Downloads keep everything.
+fn select_ids(catalog: &Catalog, sys: &SystemInfo, sel: &SelectionArgs) -> Result<Vec<String>> {
+    let mut picked: Vec<String> = Vec::new();
     for p in &sel.profiles {
-        let picked = match p {
+        picked.extend(match p {
             ProfileArg::Recommended => plan::profile_ids(catalog, Profile::Recommended, sys),
             ProfileArg::Gaming => plan::profile_ids(catalog, Profile::Gaming, sys),
             ProfileArg::Developer => plan::profile_ids(catalog, Profile::Developer, sys),
             ProfileArg::Legacy => plan::profile_ids(catalog, Profile::Legacy, sys),
             ProfileArg::All => plan::all_ids(catalog, sys),
-        };
-        ids.extend(picked);
+        });
     }
-    if !sel.ids.is_empty() {
-        let before = ids.len();
-        ids.extend(catalog.packages().filter(|p| matches(&sel.ids, &p.id)).map(|p| p.id.clone()));
-        if ids.len() == before {
-            bail!("Error: no package matches {:?}. Run `caior list` to see the ids.", sel.ids);
-        }
+    picked.retain(|id| !matches(&sel.excludes, id));
+    let named: Vec<String> = catalog.packages().filter(|p| matches(&sel.ids, &p.id)).map(|p| p.id.clone()).collect();
+    if !sel.ids.is_empty() && named.is_empty() {
+        return Err(Usage(format!("no package matches {:?}. Run `caior list` to see the ids.", sel.ids)).into());
+    }
+    if !sel.download_only {
+        picked = plan::resolve_conflicts(catalog, sys, picked);
+        picked.retain(|id| catalog.package(id).is_none_or(|p| !p.conflicts.iter().any(|c| named.contains(c))));
     }
     let mut seen = HashSet::new();
+    let mut ids: Vec<String> = picked.into_iter().chain(named).collect();
     ids.retain(|id| !matches(&sel.excludes, id) && seen.insert(id.clone()));
     if ids.is_empty() {
-        bail!("Error: nothing selected. Use --profile or --id.");
+        return Err(Usage("nothing selected. Use --profile or --id.".into()).into());
     }
+    Ok(ids)
+}
+
+/// Detects, resolves the selection and builds the plan.
+fn make_plan(catalog: &Catalog, sys: &SystemInfo, sel: &SelectionArgs) -> Result<Plan> {
+    let ids = select_ids(catalog, sys, sel)?;
 
     let probe = detect::WindowsProbe::new();
     let states: HashMap<String, State> = detect::detect_all(catalog, sys, &probe)
@@ -138,10 +162,11 @@ fn make_plan(catalog: &Catalog, sys: &SystemInfo, sel: &SelectionArgs) -> Result
             Status::NotApplicable { .. } => None,
         })
         .collect();
-    Ok(plan::build(catalog, sys, &states, &ids, PlanOptions { reinstall: sel.reinstall })?)
+    let opts = PlanOptions { reinstall: sel.reinstall, download_only: sel.download_only };
+    plan::build(catalog, sys, &states, &ids, opts).map_err(|e| Usage(e.to_string()).into())
 }
 
-fn print_plan(catalog: &Catalog, plan: &Plan) {
+fn print_plan(catalog: &Catalog, plan: &Plan, download_only: bool) {
     let name = |id: &str| catalog.package(id).map(|p| p.name.clone()).unwrap_or_else(|| id.to_string());
     let mb: u64 = plan
         .install
@@ -149,18 +174,23 @@ fn print_plan(catalog: &Catalog, plan: &Plan) {
         .filter_map(|i| catalog.package(&i.id).and_then(|p| p.source.as_ref()).map(|s| s.size))
         .sum::<u64>()
         / 1_048_576;
-    println!("To install ({}, about {mb} MB to download):", plan.install.len());
+    let verb = if download_only { "To download" } else { "To install" };
+    println!("{verb} ({}, about {mb} MB to download):", plan.install.len());
     for i in &plan.install {
         let state = match &i.state {
+            State::Installed { .. } => "installed".into(),
             State::Outdated { version, wanted } => format!("update {version} -> {wanted}"),
             State::Unknown { .. } => "state unknown".into(),
-            _ => "missing".into(),
+            State::Missing => "missing".into(),
         };
         println!("  {:<34} {:<52} {state}", i.id, name(&i.id));
     }
-    let installed = plan.skipped.iter().filter(|s| matches!(s.reason, SkipReason::AlreadyInstalled { .. })).count();
-    let other = plan.skipped.len() - installed;
-    println!("Skipped: {installed} already installed, {other} not for this PC.");
+    let count = |f: fn(&SkipReason) -> bool| plan.skipped.iter().filter(|s| f(&s.reason)).count();
+    let installed = count(|r| matches!(r, SkipReason::AlreadyInstalled { .. }));
+    let blocked = count(|r| matches!(r, SkipReason::ConflictInstalled { .. }));
+    let other = plan.skipped.len() - installed - blocked;
+    let blocked = if blocked > 0 { format!(", {blocked} cannot sit next to an installed package") } else { String::new() };
+    println!("Skipped: {installed} already installed{blocked}, {other} not for this PC.");
 }
 
 /// Prints events as plain lines. Download progress is shown in quarter steps.
@@ -255,8 +285,17 @@ fn unique_pipe_name() -> String {
 
 pub fn install(catalog: &Catalog, sel: &SelectionArgs, yes: bool, dry_run: bool) -> Result<i32> {
     let sys = SystemInfo::current();
+    let elevating = !sel.download_only && !sys.elevated;
+    if elevating && worker_paths_refused() && (sel.cache.is_some() || sel.logs.is_some()) {
+        return Err(Usage(
+            "--cache and --logs need --download-only or an administrator terminal. \
+             The installer that runs as administrator always uses %ProgramData%\\CAIOR."
+                .into(),
+        )
+        .into());
+    }
     let plan = make_plan(catalog, &sys, sel)?;
-    print_plan(catalog, &plan);
+    print_plan(catalog, &plan, sel.download_only);
     if sys.reboot_pending {
         println!("Note: Windows is waiting for a restart. Some installers may fail until you restart.");
     }
@@ -301,13 +340,22 @@ pub fn install(catalog: &Catalog, sel: &SelectionArgs, yes: bool, dry_run: bool)
             println!("Error: administrator approval was declined. Nothing was installed.");
             Ok(caior_core::elevate::UAC_DECLINED)
         }
-        Err(e) => bail!("Error: {e}"),
+        Err(e) => bail!("{e}"),
     }
+}
+
+/// The elevated worker writes only below %ProgramData%\CAIOR: in release
+/// builds it refuses folders chosen by the unelevated caller.
+fn worker_paths_refused() -> bool {
+    !cfg!(debug_assertions)
 }
 
 /// The elevated side. Rebuilds the plan from the built-in catalog and streams
 /// events into the caller's pipe.
 pub fn worker(catalog: &Catalog, pipe: &str, cancel_file: Option<&std::path::Path>, sel: &SelectionArgs) -> Result<i32> {
+    if worker_paths_refused() && (sel.cache.is_some() || sel.logs.is_some()) {
+        bail!("the worker does not accept --cache or --logs");
+    }
     let sys = SystemInfo::current();
     let out = Mutex::new(caior_core::elevate::connect(pipe)?);
     let send = |e: &Event| {
@@ -359,7 +407,7 @@ pub fn pack(catalog: &Catalog, sel: &SelectionArgs, out: &std::path::Path, folde
         println!("Nothing to pack.");
         return Ok(0);
     }
-    print_plan(catalog, &plan);
+    print_plan(catalog, &plan, true);
     let printer = Printer::new(catalog);
     let opts = sel.session_options();
     let cancel = AtomicBool::new(false);

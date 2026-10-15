@@ -107,7 +107,7 @@ Kurallar: `key` başında `\`, `HKLM` veya `HKEY` olmaz. `Wow6432Node` yazmak ye
 - Kategori ve paket id'leri desen ve benzersizlik; `group` tek kategoride.
 - `depends` var olan id'lere işaret eder, döngü yok; paket kendine bağlı olamaz.
 - Bir bağımlılığın `order` değeri, ona bağlı paketinkinden küçük olmalı (planlayıcı `order`'a göre sıralar).
-- `conflicts` var olan id'lere işaret eder, iki tarafta da yazılmalı (uyarı), bağımlılıkla çakışamaz.
+- `conflicts` var olan id'lere işaret eder, iki tarafta da yazılmalı (uyarı), bağımlılıkla çakışamaz. Bir profil çakışan iki paketi birden içeremez (profil bütün olarak kurulur). "Hepsi" seçiminde planlayıcı bu sistemin mimarisine uyan tarafı, sonra bir profilde olanı, sonra katalogda önce geleni tutar; çakıştığı paket kuruluysa diğer taraf atlanır. Sadece indirmede (offline paket) çakışma önemsenmez.
 - `os_arch` içinde `neutral` olamaz.
 - URL'ler https (http uyarı); `filename` çıplak dosya adı.
 - `sha256` 64 küçük harf hex; evergreen değilse strict'te zorunlu. `evergreen = true` → `signer` zorunlu.

@@ -3,8 +3,6 @@
 //! a console; command-line use attaches to the console of the calling shell.
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
-//! The GUI and the install engine come in later phases; for now the CLI can
-//! list the catalog, detect what is installed, and fetch installers.
 
 mod gui;
 mod install_cmd;
@@ -90,11 +88,11 @@ fn load_catalog(dir: &Option<PathBuf>) -> Result<Catalog> {
         Some(dir) => {
             let (catalog, errors) = catalog::load_dir(dir)?;
             if let Some(e) = errors.first() {
-                bail!("Error: the catalog could not be read: {e}");
+                bail!("the catalog could not be read: {e}");
             }
             Ok(catalog)
         }
-        None => catalog::embedded().context("Error: the built-in catalog could not be read"),
+        None => catalog::embedded().context("the built-in catalog could not be read"),
     }
 }
 
@@ -208,34 +206,38 @@ fn fetch_cmd(catalog: &Catalog, ids: &[String], cache: &Path) -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() {
     // The worker runs hidden; every other command line use prints to the caller's console.
     let args: Vec<String> = std::env::args().collect();
     let is_worker = args.get(1).is_some_and(|a| a == "worker");
     if args.len() > 1 && !is_worker {
         caior_core::desktop::attach_parent_console();
     }
-    let cli = Cli::parse();
+    let code = match run(Cli::parse()) {
+        Ok(code) => code,
+        Err(e) => {
+            // One "Error:" prefix; returning the error from main would print its Debug form.
+            eprintln!("Error: {e:#}");
+            if e.is::<install_cmd::Usage>() { 2 } else { 1 }
+        }
+    };
+    std::process::exit(code)
+}
+
+fn run(cli: Cli) -> Result<i32> {
     let catalog = load_catalog(&cli.catalog)?;
     match cli.command {
-        None => gui::run(catalog),
-        Some(Command::Detect { json, all }) => detect_cmd(&catalog, json, all),
-        Some(Command::Fetch { ids, cache }) => fetch_cmd(&catalog, &ids, &cache),
-        Some(Command::Install { sel, yes, silent, dry_run }) => {
-            let code = install_cmd::install(&catalog, &sel, yes || silent, dry_run)?;
-            std::process::exit(code)
-        }
-        Some(Command::Pack { sel, out, folder }) => {
-            let code = install_cmd::pack(&catalog, &sel, &out, folder)?;
-            std::process::exit(code)
-        }
+        None => gui::run(catalog).map(|()| 0),
+        Some(Command::Detect { json, all }) => detect_cmd(&catalog, json, all).map(|()| 0),
+        Some(Command::Fetch { ids, cache }) => fetch_cmd(&catalog, &ids, &cache).map(|()| 0),
+        Some(Command::Install { sel, yes, silent, dry_run }) => install_cmd::install(&catalog, &sel, yes || silent, dry_run),
+        Some(Command::Pack { sel, out, folder }) => install_cmd::pack(&catalog, &sel, &out, folder),
         Some(Command::Worker { pipe, cancel_file, sel }) => {
             // The elevated worker only trusts the catalog compiled into it.
             if cli.catalog.is_some() && !cfg!(debug_assertions) {
-                bail!("Error: the worker does not accept --catalog");
+                bail!("the worker does not accept --catalog");
             }
-            let code = install_cmd::worker(&catalog, &pipe, cancel_file.as_deref(), &sel)?;
-            std::process::exit(code)
+            install_cmd::worker(&catalog, &pipe, cancel_file.as_deref(), &sel)
         }
         Some(Command::List) => {
             for c in &catalog.categories {
@@ -244,7 +246,7 @@ fn main() -> Result<()> {
                     println!("  {:<34} {} ({:?})", p.id, p.name, p.arch);
                 }
             }
-            Ok(())
+            Ok(0)
         }
     }
 }

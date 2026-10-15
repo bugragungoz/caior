@@ -417,7 +417,19 @@ fn check_dependencies(catalog: &Catalog, issues: &mut Vec<Issue>) {
                     package: Some(pkg.id.clone()),
                     message: format!("conflict with {other:?} is not listed on both sides"),
                 }),
-                _ => {}
+                Some(o) => {
+                    // A profile is installed as a whole; it cannot hold both sides.
+                    if let Some(profile) = pkg.profiles.iter().find(|p| o.profiles.contains(p))
+                        && pkg.id < o.id
+                    {
+                        issues.push(Issue {
+                            severity: Severity::Error,
+                            file,
+                            package: Some(pkg.id.clone()),
+                            message: format!("profile {profile:?} holds both {:?} and its conflict {other:?}", pkg.id),
+                        });
+                    }
+                }
             }
             if pkg.depends.contains(other) {
                 issues.push(Issue {
@@ -618,6 +630,19 @@ equals = 1
 {}", &dep[dep.find("[[package]]").unwrap()..]);
         let errs = errors(&catalog_of(&[&both]), false);
         assert!(errs.iter().any(|e| e.contains("must come before")), "{errs:?}");
+    }
+
+    #[test]
+    fn profile_cannot_hold_both_sides_of_a_conflict() {
+        let x64 = GOOD.replace("group = \"vc-2013\"", "conflicts = [\"vc-2013-x86\"]");
+        let x86 = GOOD
+            .replace("id = \"vc-2013-x64\"", "id = \"vc-2013-x86\"")
+            .replace("group = \"vc-2013\"", "conflicts = [\"vc-2013-x64\"]");
+        let both = format!("{x64}\n{}", &x86[x86.find("[[package]]").unwrap()..]);
+        let errs = errors(&catalog_of(&[&both]), false);
+        assert_eq!(errs.iter().filter(|e| e.contains("holds both")).count(), 1, "{errs:?}");
+        let one = both.replacen("profiles = [\"recommended\"]", "profiles = []", 1);
+        assert!(errors(&catalog_of(&[&one]), false).is_empty());
     }
 
     #[test]

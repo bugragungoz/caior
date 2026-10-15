@@ -35,7 +35,7 @@ caior pack --profile all --folder --out E:\caior
 caior list                                      # every package id
 ```
 
-Exit codes: `0` done, `3010` done and Windows needs a restart, `1` something failed, `1223` administrator approval declined. Logs are in `%ProgramData%\CAIOR\logs`, one folder per run with a log per package.
+Exit codes: `0` done, `3010` done and Windows needs a restart, `1` something failed, `2` the command line has a mistake (unknown id, two packages that cannot be installed together), `1223` administrator approval declined. Logs are in `%ProgramData%\CAIOR\logs`, one folder per run with a log per package.
 
 The exe is a GUI program, so `cmd` does not wait for it; use `start /wait caior.exe install ...` (or `Start-Process -Wait` in PowerShell) in scripts.
 

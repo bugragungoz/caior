@@ -207,17 +207,19 @@ mod tests {
     fn log_placeholder_in_exe_args() {
         let p = pkg("kind = \"exe\"
 args = '/quiet /log \"{log}\"'", true);
-        let inv = invocations(&p, Some(Path::new(r"C:\cache\p.exe")), &ctx()).unwrap();
-        assert_eq!(inv[0].args, r#"/quiet /log "C:\logs\p.installer.log""#);
-        assert_eq!(inv[0].tool_log, Some(PathBuf::from(r"C:\logs\p.installer.log")));
+        let inv = invocations(&p, Some(Path::new(r"C:\cache\p\f.exe")), &ctx()).unwrap();
+        let log = ctx().log_dir.join("p.installer.log");
+        assert_eq!(inv[0].args, format!(r#"/quiet /log "{}""#, log.display()));
+        assert_eq!(inv[0].tool_log, Some(log));
     }
 
     #[test]
     fn msi_gets_quiet_flags_log_and_properties() {
         let p = pkg("kind = \"msi\"\nproperties = \"ADDLOCAL=FeatureMain\"", true);
         let inv = invocations(&p, Some(Path::new(r"C:\cache\p\f.msi")), &ctx()).unwrap();
-        assert_eq!(inv[0].program, PathBuf::from(r"C:\Windows\System32\msiexec.exe"));
-        assert_eq!(inv[0].args, r#"/i "C:\cache\p\f.msi" /qn /norestart /l*v "C:\logs\p.msi.log" ADDLOCAL=FeatureMain"#);
+        assert_eq!(inv[0].program, ctx().system_root.join("System32").join("msiexec.exe"));
+        let log = ctx().log_dir.join("p.msi.log");
+        assert_eq!(inv[0].args, format!(r#"/i "C:\cache\p\f.msi" /qn /norestart /l*v "{}" ADDLOCAL=FeatureMain"#, log.display()));
     }
 
     #[test]
@@ -226,7 +228,10 @@ args = '/quiet /log \"{log}\"'", true);
         let inv = invocations(&f, None, &ctx()).unwrap();
         assert_eq!(
             inv[0].args,
-            r#"/Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart /Quiet /LogPath:"C:\logs\p.dism.log""#
+            format!(
+                r#"/Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart /Quiet /LogPath:"{}""#,
+                ctx().log_dir.join("p.dism.log").display()
+            )
         );
         let c = pkg("kind = \"dism-capability\"\ncapability = \"Media.MediaFeaturePack~~~~0.0.1.0\"", false);
         assert!(invocations(&c, None, &ctx()).unwrap()[0].args.contains("/Add-Capability /CapabilityName:Media.MediaFeaturePack~~~~0.0.1.0"));
@@ -237,8 +242,9 @@ args = '/quiet /log \"{log}\"'", true);
         let p = pkg("kind = \"directx\"", true);
         let inv = invocations(&p, Some(Path::new(r"C:\cache\p\dx.exe")), &ctx()).unwrap();
         assert_eq!(inv.len(), 2);
-        assert_eq!(inv[0].args, r#"/Q /T:"C:\work\p-redist""#);
-        assert_eq!(inv[1].program, PathBuf::from(r"C:\work\p-redist\DXSETUP.exe"));
+        let dir = ctx().work_dir.join("p-redist");
+        assert_eq!(inv[0].args, format!(r#"/Q /T:"{}""#, dir.display()));
+        assert_eq!(inv[1].program, dir.join("DXSETUP.exe"));
         assert_eq!(inv[1].args, "/silent");
     }
 

@@ -96,6 +96,79 @@ fn lock_for_run(path: &Path) -> std::io::Result<File> {
     std::fs::OpenOptions::new().read(true).share_mode(FILE_SHARE_READ).open(path)
 }
 
+/// Puts the installer of a verified download into `<dir>\\<id>\\` (a folder
+/// only administrators can change) and locks it there. The bytes come from
+/// the locked download itself, copied or unzipped, never from a file in the
+/// shared cache that someone could have changed after verification.
+#[cfg(windows)]
+fn stage(src: &crate::catalog::Source, locked: &File, installer: &Path, dir: &Path, id: &str) -> std::io::Result<(PathBuf, File)> {
+    use sha2::{Digest, Sha256};
+    use std::io::{Seek, SeekFrom, Write};
+
+    /// Hashes what passes through, to compare the copy on disk afterwards.
+    struct Hashing<W: Write> {
+        inner: W,
+        hasher: Sha256,
+    }
+    impl<W: Write> Write for Hashing<W> {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            let n = self.inner.write(buf)?;
+            self.hasher.update(&buf[..n]);
+            Ok(n)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.inner.flush()
+        }
+    }
+
+    let pkg_dir = dir.join(id);
+    std::fs::create_dir(&pkg_dir)?;
+    let dest = pkg_dir.join(installer.file_name().unwrap_or(std::ffi::OsStr::new("installer.exe")));
+    let mut reader = locked;
+    reader.seek(SeekFrom::Start(0))?;
+    let mut out = Hashing { inner: std::io::BufWriter::new(File::create_new(&dest)?), hasher: Sha256::new() };
+    match &src.extract {
+        None => {
+            std::io::copy(&mut reader, &mut out)?;
+        }
+        Some(x) => fetch::unzip_entry(reader, &x.entry, &mut out).map_err(std::io::Error::other)?,
+    }
+    out.flush()?;
+    let expected: String = out.hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    let lock = lock_for_run(&dest)?;
+    let (_, actual) = fetch::sha256_file(&dest)?;
+    if actual != expected {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "the copied installer does not match"));
+    }
+    Ok((dest, lock))
+}
+
+/// The session's log folder. Installing runs elevated, so the folder is
+/// created new with fixed permissions (administrators write, users read)
+/// instead of reusing a folder that may already exist; any user can create
+/// folders under %ProgramData%, including one with the next timestamp.
+#[cfg(windows)]
+fn create_log_dir(root: &Path, elevated: bool) -> PathBuf {
+    use crate::secure_dir::{self, Readers};
+    let _ = std::fs::create_dir_all(root);
+    let name = timestamp();
+    let plain = root.join(&name);
+    if !elevated {
+        let _ = std::fs::create_dir_all(&plain);
+        return plain;
+    }
+    match secure_dir::create(&plain, Readers::Users) {
+        Ok(()) => plain,
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            secure_dir::create_unique(root, &format!("{name}-"), Readers::Users).unwrap_or(plain)
+        }
+        Err(_) => {
+            let _ = std::fs::create_dir_all(&plain);
+            plain
+        }
+    }
+}
+
 type FetchResult = Result<Fetched, String>;
 
 /// Downloads every package that has a source, `jobs` at a time, in plan order.
@@ -166,8 +239,7 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
     use crate::detect::{State, WindowsProbe, evaluate};
     use crate::install::{RetryPolicy, RunContext, run_package};
 
-    let log_dir = opts.log_root.join(timestamp());
-    let _ = std::fs::create_dir_all(&log_dir);
+    let log_dir = create_log_dir(&opts.log_root, !opts.download_only);
     let mut summary = Summary { log_dir: log_dir.display().to_string(), ..Summary::default() };
     let by_id: HashMap<&str, &Package> = catalog.packages().map(|p| (p.id.as_str(), p)).collect();
     let items: Vec<&Package> = plan.install.iter().filter_map(|i| by_id.get(i.id.as_str()).copied()).collect();
@@ -183,17 +255,31 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
         Some(b) => {
             let dir = crate::bundle::cache_dir(&b, &opts.cache_dir);
             let ids: Vec<String> = items.iter().map(|p| p.id.clone()).collect();
-            if let Err(e) = crate::bundle::prepare(&b, &ids, &dir) {
-                emit(Event::Failed { id: "offline-package".into(), error: e.to_string() });
+            match crate::bundle::prepare(&b, &ids, &dir) {
+                Ok(p) if !p.damaged.is_empty() => emit(Event::Failed {
+                    id: "offline-package".into(),
+                    error: format!("damaged in the offline package, downloading instead: {}", p.damaged.join(", ")),
+                }),
+                Ok(_) => {}
+                Err(e) => emit(Event::Failed { id: "offline-package".into(), error: e.to_string() }),
             }
             dir
         }
         None => opts.cache_dir.clone(),
     };
     let cache = Cache::new(&cache_dir);
+    // Installers run from a fresh folder only administrators can change; the
+    // DirectX redist unpacks there too. Without it nothing with a file is
+    // installed: running from the shared cache is what it protects against.
+    let staging: Result<PathBuf, String> = if opts.download_only {
+        Err("download only".into())
+    } else {
+        crate::secure_dir::create_unique(&crate::secure_dir::system_temp(), "CAIOR-", crate::secure_dir::Readers::AdminsOnly)
+            .map_err(|e| format!("cannot create a private folder for the installers: {e}"))
+    };
     let ctx = RunContext {
         log_dir: log_dir.clone(),
-        work_dir: opts.cache_dir.join("_work"),
+        work_dir: staging.clone().unwrap_or_else(|_| opts.cache_dir.join("_work")),
         system_root: PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())),
     };
 
@@ -234,6 +320,10 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
             if opts.download_only {
                 if fetched.is_some() {
                     summary.downloaded += 1;
+                } else {
+                    // Windows features come from Windows Update; there is nothing to download.
+                    emit(Event::Skipped { id: pkg.id.clone(), reason: "windows-feature".into() });
+                    summary.skipped += 1;
                 }
                 continue;
             }
@@ -250,31 +340,38 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
                 continue;
             }
 
-            // Lock, then verify again: the file that passed is the file that runs.
-            let mut locks = Vec::new();
+            // Lock the download, put its installer into the private folder
+            // through that locked handle, then verify again with the copy as
+            // the installer: the file that passed is the file that runs.
+            let mut staged: Option<(PathBuf, File)> = None;
             if let Some(f) = &fetched {
                 let src = pkg.source.as_ref().unwrap();
-                let locked = [&f.download, &f.installer]
-                    .into_iter()
-                    .collect::<HashSet<_>>()
-                    .into_iter()
-                    .map(|p| lock_for_run(p).map_err(|e| format!("cannot lock {}: {e}", p.display())))
-                    .collect::<Result<Vec<_>, _>>()
-                    .and_then(|l| {
-                        locks = l;
-                        fetch::verify(src, &f.download, &f.installer).map_err(|e| e.to_string())
+                let ready = lock_for_run(&f.download)
+                    .map_err(|e| format!("cannot lock {}: {e}", f.download.display()))
+                    .and_then(|download_lock| {
+                        let dir = staging.as_ref().map_err(Clone::clone)?;
+                        let (path, lock) = stage(src, &download_lock, &f.installer, dir, &pkg.id)
+                            .map_err(|e| format!("cannot copy the installer to {}: {e}", dir.display()))?;
+                        fetch::verify(src, &f.download, &path).map_err(|e| e.to_string())?;
+                        Ok((path, lock))
                     });
-                if let Err(e) = locked {
-                    emit(Event::Failed { id: pkg.id.clone(), error: e });
-                    summary.failed += 1;
-                    failed.insert(pkg.id.clone());
-                    continue;
+                match ready {
+                    Ok(s) => staged = Some(s),
+                    Err(e) => {
+                        emit(Event::Failed { id: pkg.id.clone(), error: e });
+                        summary.failed += 1;
+                        failed.insert(pkg.id.clone());
+                        continue;
+                    }
                 }
             }
 
             emit(Event::InstallStarted { id: pkg.id.clone(), index: index + 1, total });
-            let result = run_package(pkg, fetched.as_ref().map(|f| f.installer.as_path()), &ctx, RetryPolicy::default(), cancel);
-            drop(locks);
+            let result = run_package(pkg, staged.as_ref().map(|(p, _)| p.as_path()), &ctx, RetryPolicy::default(), cancel);
+            if let (Some((_, lock)), Ok(dir)) = (staged.take(), &staging) {
+                drop(lock);
+                let _ = std::fs::remove_dir_all(dir.join(&pkg.id));
+            }
 
             let not_detected = result.outcome.is_success()
                 && matches!(evaluate(&pkg.detect, &WindowsProbe::new()), State::Missing);
@@ -299,6 +396,9 @@ pub fn run(catalog: &Catalog, plan: &Plan, opts: &SessionOptions, cancel: &Atomi
         }
     });
 
+    if let Ok(dir) = &staging {
+        let _ = std::fs::remove_dir_all(dir);
+    }
     summary.skipped += plan.skipped.len();
     if cancel.load(Ordering::Relaxed) {
         summary.cancelled = true;

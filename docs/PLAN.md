@@ -1,6 +1,6 @@
 # CAIOR v3 - Plan
 
-Son güncelleme: 2026-10-11. Durum: v3.0.0-alpha.1 yayında (GitHub: bugragungoz/caior). Tüm fazlar tamam; açık işler 4b ve aşağıdaki notlarda.
+Son güncelleme: 2026-10-15. Durum: v3.0.0-alpha.1 yayında (GitHub: bugragungoz/caior). Tüm fazlar tamam; açık işler 4b ve aşağıdaki notlarda.
 
 ## 1. Amaç
 
@@ -101,6 +101,9 @@ Seçenekler (Ayarlar): kurulum öncesi sistem geri yükleme noktası (varsayıla
 - Yükseltilmiş worker planı kendisi kurar: yükseltilmemiş süreçten sadece seçim (profil, id) gelir, plan veya katalog gelmez. Release derlemede worker `--catalog` kabul etmez; sadece exe'ye gömülü kataloğu kullanır.
 - İlerleme, yükseltilmemiş sürecin oluşturduğu tek örnekli bir named pipe üzerinden gelir (uzak istemciler reddedilir). Worker kullanıcının seçtiği bir yola dosya yazmaz.
 - Kurulumdan hemen önce installer dosyası yazma/silme/yeniden adlandırmaya kapalı olarak açılır ve yeniden doğrulanır; dosya installer bitene kadar kilitli kalır. Doğrulanan dosya ile çalışan dosya aynıdır.
+- Installer'lar ortak önbellekten (`%ProgramData%\CAIOR\cache`) çalıştırılmaz: Users grubu oradaki alt klasörlere dosya ekleyebilir (DLL yerleştirme, DXSETUP'ın yanına `dsetup.dll` gibi). Yükseltilmiş oturum `%SystemRoot%\Temp\CAIOR-<rastgele>` klasörünü yalnızca SYSTEM + Administrators erişimiyle (devralınmayan DACL) yeni oluşturur; kilitli indirmeden installer'ı oraya kopyalar (zip ise oradan çıkarır), kopyayı kilitler ve aynı doğrulamadan geçirir, sonra kopyayı çalıştırır. DirectX da orada açılır. Klasör oluşturulamazsa dosyalı paketler kurulmaz (2026-10-15).
+- Oturum kayıt klasörü yükseltilmiş çalışmada var olan bir klasör yeniden kullanılmadan, sabit izinle (yönetici yazar, Users okur) yeni oluşturulur; zaman damgalı ad önceden alınmışsa rastgele ek kullanılır.
+- Release derlemede worker `--cache` ve `--logs` de kabul etmez; yönetici olmayan terminalde `install --cache/--logs` (indirme dışında) kullanım hatası verir.
 - Installer'lar bir job object içinde başlar. Zaman aşımında installer ve alt süreçleri birlikte sonlandırılır; CAIOR kapanırsa çalışan installer öldürülmez (yarım kurulum riski).
 - 1618 (başka kurulum sürüyor) alınırsa 30 sn arayla 3 kez yeniden denenir. İptal, çalışan installer'ı kesmez; sıradaki pakete geçmeden durur.
 - İmza kontrolü WinVerifyTrust ile, iptal listesi ve ağ erişimi olmadan yapılır; offline paket de aynı şekilde doğrulanır.
@@ -127,6 +130,17 @@ Seçenekler (Ayarlar): kurulum öncesi sistem geri yükleme noktası (varsayıla
 | MSI tespitinde mimari filtresi | Node.js x64/arm64 aynı UpgradeCode | `os_arch` ile çözüldü; istenirse `msi_platform` |
 | Kullanıcı başına kurulum | Python install manager sadece kullanıcı başına | Python 3.16'dan önce (tam installer kalkınca) yeni yöntem |
 | IExpress sarmalayıcıları hata kodunu yutar | VC++ 2005 | Motor "başarılı ama tespit yok"u hata sayıyor (2026-10-10) |
+
+## 4c. 2026-10-15 gözden geçirme ve düzeltmeler
+
+- "Hepsi" profili ve `--profile all` hiç çalışmıyordu: ACE 2016 x86 ve x64 birlikte seçiliyor, plan çakışma hatası veriyordu (GUI'de buton sessizce hiçbir şey yapmıyordu, README'deki `pack --profile all` örneği de hata veriyordu). Artık otomatik seçimlerde tek taraf tutulur (`plan::resolve_conflicts`), GUI'de bir paket seçilince çakıştığı paket bırakılır, sadece indirmede çakışma önemsenmez, çakıştığı paket kuruluysa diğeri atlanır. Doğrulayıcı: bir profil çakışan iki paketi içeremez.
+- İndirme: zaman aşımı yoktu, takılan bağlantı oturumu sonsuza kadar bekletiyordu (İptal de işlemiyordu). Artık 60 sn veri gelmezse kesilir ve aynı URL kaldığı yerden 3 kez denenir (ağ hatası, 5xx, 408, 429). Eski `.part` dosyası 416 alınca silinip baştan indirilir (önceden paket kalıcı olarak takılıyordu); devam ettirilen dosya doğrulanamazsa bir kez sıfırdan indirilir.
+- Offline paket: içi boş bir tek exe paketten yeniden paket yapılınca program kısmı hiç kopyalanmıyordu; tek exe paketten klasör paketi yapılınca klasördeki `caior.exe` tüm yükü taşıyordu (ve klasörü gölgeliyordu). Tek bozuk dosya diğerlerinin çıkarılmasını durduruyordu; artık bozuklar listelenir, gerisi çıkarılır, bozuklar internetten indirilir.
+- "Sadece indir"de Windows özellikleri (.NET 3.5 vb.) ilerleme listesinde "Bekliyor"da kalıyordu; artık "Atlandı".
+- Oturum sonrası yeniden tespit GUI iş parçacığında çalışıp pencereyi birkaç saniye donduruyordu; artık arka planda.
+- 1618 beklemesi (30 sn) İptal'e yanıt vermiyordu.
+- CLI hataları "Error: Error: ..." diye iki kez yazılıyordu; kullanım hataları artık 2 ile çıkar.
+- `install/command.rs` testinde görünmez bir form-feed karakteri vardı; komut testleri artık Linux'ta da geçiyor (`cargo test -p caior-core`).
 
 ## 5. Yol haritası
 

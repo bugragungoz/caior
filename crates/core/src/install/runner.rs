@@ -162,8 +162,14 @@ pub fn run_package(
             };
             if code == ERROR_INSTALL_ALREADY_RUNNING && busy_left > 0 && !cancel.load(Ordering::Relaxed) {
                 busy_left -= 1;
-                std::thread::sleep(retry.busy_wait);
-                continue;
+                // Wait in small steps: a cancel during the wait gives up the retry.
+                let until = Instant::now() + retry.busy_wait;
+                while Instant::now() < until && !cancel.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(250).min(retry.busy_wait));
+                }
+                if !cancel.load(Ordering::Relaxed) {
+                    continue;
+                }
             }
             if n < last {
                 if code != 0 {
