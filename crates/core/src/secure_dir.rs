@@ -39,7 +39,7 @@ pub fn create(path: &Path, readers: Readers) -> io::Result<()> {
     // SAFETY: `sd` receives a LocalAlloc'd descriptor that is freed below;
     // `sa` and both strings outlive the CreateDirectoryW call.
     unsafe {
-        ConvertStringSecurityDescriptorToSecurityDescriptorW(&sddl, SDDL_REVISION_1, &mut sd, None)?;
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(&sddl, SDDL_REVISION_1, &mut sd, None).map_err(io_error)?;
         let sa = SECURITY_ATTRIBUTES {
             nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
             lpSecurityDescriptor: sd.0,
@@ -47,9 +47,21 @@ pub fn create(path: &Path, readers: Readers) -> io::Result<()> {
         };
         let created = CreateDirectoryW(&target, Some(&sa));
         let _ = LocalFree(Some(HLOCAL(sd.0)));
-        created?;
+        created.map_err(io_error)?;
     }
     Ok(())
+}
+
+/// The plain Win32 error, so `kind()` works: the windows crate's own
+/// conversion keeps the HRESULT (0x800700B7), which reads as Uncategorized
+/// instead of AlreadyExists.
+fn io_error(e: windows::core::Error) -> io::Error {
+    let hr = e.code().0 as u32;
+    if hr & 0xffff_0000 == 0x8007_0000 {
+        io::Error::from_raw_os_error((hr & 0xffff) as i32)
+    } else {
+        io::Error::other(e)
+    }
 }
 
 /// Creates `<parent>\<prefix><random>` with `create`, trying new names while

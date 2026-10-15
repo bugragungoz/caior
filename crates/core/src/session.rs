@@ -133,8 +133,11 @@ fn stage(src: &crate::catalog::Source, locked: &File, installer: &Path, dir: &Pa
         }
         Some(x) => fetch::unzip_entry(reader, &x.entry, &mut out).map_err(std::io::Error::other)?,
     }
-    out.flush()?;
-    let expected: String = out.hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    // Close the write handle before locking: the lock allows readers only,
+    // so an open writer (even our own) makes it fail with a sharing violation.
+    let Hashing { inner, hasher } = out;
+    drop(inner.into_inner().map_err(std::io::IntoInnerError::into_error)?);
+    let expected: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
     let lock = lock_for_run(&dest)?;
     let (_, actual) = fetch::sha256_file(&dest)?;
     if actual != expected {
