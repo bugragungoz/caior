@@ -472,6 +472,55 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The whole install path on a real Windows: cached download, lock, copy
+    /// into the private folder, verify again, run, clean up. The "installer"
+    /// is a copy of cmd.exe with a pinned hash. Needs administrator rights
+    /// (GitHub's Windows runners have them); skipped otherwise.
+    #[cfg(windows)]
+    #[test]
+    fn install_runs_a_verified_copy_and_cleans_up() {
+        use crate::catalog::parse_category;
+        use crate::plan::{PlanOptions, build};
+
+        let sys = crate::detect::SystemInfo::current();
+        if !sys.elevated {
+            eprintln!("skipped: needs administrator rights");
+            return;
+        }
+        let base = std::env::temp_dir().join(format!("caior-session-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let cmd = PathBuf::from(std::env::var("SystemRoot").unwrap()).join(r"System32\cmd.exe");
+        let cached = base.join("cache").join("fake").join("fake.exe");
+        std::fs::create_dir_all(cached.parent().unwrap()).unwrap();
+        std::fs::copy(&cmd, &cached).unwrap();
+        let (size, sha) = fetch::sha256_file(&cached).unwrap();
+        let toml = format!(
+            "[category]\nid = \"t\"\nname = {{ en = \"T\" }}\norder = 1\nicon = \"x\"\n\n[[package]]\nid = \"fake\"\nname = \"Fake\"\nversion = \"1\"\narch = \"neutral\"\norder = 1\n[package.source]\nurl = \"https://example.invalid/fake.exe\"\nfilename = \"fake.exe\"\nsize = {size}\nsha256 = \"{sha}\"\n[package.install]\nkind = \"exe\"\nargs = '/c exit 3010'\ntimeout_sec = 60\n[package.detect]\nkind = \"none\"\n"
+        );
+        let catalog = Catalog { categories: vec![parse_category("t.toml", &toml).unwrap()] };
+        let plan = build(&catalog, &sys, &HashMap::new(), &["fake".into()], PlanOptions::default()).unwrap();
+        let opts = SessionOptions {
+            cache_dir: base.join("cache"),
+            log_root: base.join("logs"),
+            download_jobs: 1,
+            download_only: false,
+        };
+        let events = std::sync::Mutex::new(Vec::new());
+        let summary = run(&catalog, &plan, &opts, &AtomicBool::new(false), &|e| events.lock().unwrap().push(e));
+        let events = events.into_inner().unwrap();
+        assert_eq!((summary.installed, summary.failed, summary.reboot_required), (1, 0, true), "{events:?}");
+        assert!(events.iter().any(|e| matches!(e, Event::InstallFinished { outcome, .. } if outcome == "reboot")));
+        let log = std::fs::read_to_string(Path::new(&summary.log_dir).join("fake.log")).unwrap();
+        // The program that ran is the copy in %SystemRoot%\Temp\CAIOR-*, not the cache.
+        let ran = log.lines().next().unwrap_or_default().to_ascii_lowercase();
+        let temp = crate::secure_dir::system_temp().join("CAIOR-").display().to_string().to_ascii_lowercase();
+        assert!(ran.contains(&temp), "{log}");
+        let staged = ran.split('"').nth(1).map(PathBuf::from).unwrap();
+        assert!(!staged.exists() && !staged.parent().unwrap().parent().unwrap().exists(), "private folder removed");
+        assert!(cached.is_file(), "the cache keeps its copy");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     #[test]
     fn exit_codes() {
         assert_eq!(Summary::default().exit_code(), 0);
